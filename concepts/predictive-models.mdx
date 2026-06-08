@@ -1,109 +1,118 @@
 ---
 title: "Predictive Models"
-description: "How Dirt IQ's machine learning models generate race outcome predictions."
+description: "How Dirt IQ generates opening odds — Bayesian driver scoring, ML regression, and the line compilation pipeline."
 ---
 
 ## Overview
 
-Dirt IQ uses an ensemble of purpose-built models trained on over a decade of dirt track racing data. Each model targets a different prediction task — win probability, lap time projection, track condition evolution — and their outputs are combined via a meta-model to produce the final ranked predictions you see in the API response.
+Dirt IQ uses a two-stage modeling architecture:
+
+1. **Bayesian odds engine** — generates probability estimates per driver based on priors built from historical results
+2. **ML regression layer** — adjusts those probabilities using event-specific covariates (track conditions, weather, qualifying pace)
+
+Outputs are then converted to market odds with an operator-configurable overround margin.
 
 ---
 
-## Model architecture
+## Stage 1: Bayesian odds engine
 
-### 1. Driver performance model
+### Prior construction
 
-Predicts individual driver output based on recent form and career history. Inputs include:
+For each driver, we build a prior probability distribution over finishing positions using their full DIRTRACKR results history. The prior is:
 
-- **Rolling performance score** — weighted average of finish positions over the last 30 days, decayed by recency
-- **Surface-specific history** — separate statistics for clay, slick, and cushion conditions
-- **Division-level calibration** — accounts for differences in field depth across series
-- **Fatigue index** — penalizes drivers who have run high mileage in the previous 7 days
-
-### 2. Track affinity model
-
-Measures how well a driver historically performs at a specific track relative to the rest of the field:
-
-- Baseline win rate and average finish at the track
-- Condition-specific performance (driver may excel on slick but struggle on cushion at a given track)
-- Qualifying and hot lap performance at the same venue
-
-### 3. Track condition model
-
-Forecasts how track conditions will evolve throughout the race night. See [Track Conditions](/concepts/track-conditions) for the full scoring methodology.
-
-### 4. Weather impact model
-
-Adjusts predictions based on real-time and forecast weather data. See [Weather Integration](/analytics/weather-integration) for details.
-
-### 5. Meta-model (ensemble)
-
-The four models above feed into a gradient-boosted meta-model that:
-
-- Weights each model's signal based on how informative it is for the specific track and division
-- Produces the final `win_probability`, `podium_probability`, and `top5_probability` values
-- Outputs a `confidence` score representing the certainty of the overall prediction
-
----
-
-## How predictions update during a race night
-
-Predictions are not static. Dirt IQ recalculates throughout the event lifecycle:
+- Weighted by recency (exponential decay; half-life = 90 days)
+- Conditioned on series (Lucas Oil Late Models vs. regional results receive separate weights)
+- Conditioned on track type (half-mile, short, flat, banked)
+- Calibrated for field depth — a win in a 35-car national field counts more than a win in a 12-car regional
 
 ```
-Entry list published
-        ↓
-Initial prediction generated (driver + track affinity + weather)
-        ↓
-Hot laps / time trials complete
-        ↓
-Prediction updated with qualifying data + observed track conditions
-        ↓
-Heat races complete
-        ↓
-Prediction updated with heat race results (starting position, observed speed)
-        ↓
-Feature event start
-        ↓
-Real-time lap-by-lap updates (if live timing feed is connected)
+P(win | driver, event) ∝ prior_win_rate × field_depth_factor × recency_weight
 ```
 
-Each recalculation fires a `prediction.updated` webhook event if you have a subscription registered.
+### Likelihood update
+
+When new information arrives — entry list finalized, qualifying complete, heat races run — the engine performs a Bayesian update:
+
+```
+P(win | driver, event, new_data) ∝ P(new_data | driver, event) × P(win | driver, event)
+```
+
+This means opening lines (entry list only) are conservative and widen as information accumulates. By the time heat races are complete, the model has substantially more signal and line confidence is higher.
+
+### Field normalization
+
+Raw win probabilities across the entry list are normalized so they sum to 1.0. The engine then applies the overround margin (configurable per operator, default 10–15%) to produce the published implied probabilities and odds.
 
 ---
 
-## Confidence scores
+## Stage 2: ML regression adjustments
 
-The `confidence` field (0–1) reflects how much signal the models have for a given event. Confidence is higher when:
+A gradient-boosted regression model adjusts the Bayesian base probabilities using features the prior doesn't capture:
 
-- The entry list is complete and all drivers have sufficient history
-- Weather data is available from a local station
-- Track prep logs have been submitted
-- Heat race results are available
-
-Confidence is lower when:
-
-- The entry list contains many drivers with limited history at this track
-- Weather data must be interpolated from distant stations
-- The event uses a format the model hasn't seen many examples of
-
-<Tip>
-  When `confidence` is below 0.6, consider supplementing Dirt IQ predictions with domain expertise before making high-stakes decisions.
-</Tip>
-
----
-
-## Model limitations
-
-| Limitation | Notes |
+| Feature | Description |
 |---|---|
-| First-time or rare drivers | Predictions for drivers with fewer than 5 career starts in the division have wider error bars |
-| Unusual formats | Invert races, random draws, or non-standard feature lengths reduce model accuracy |
-| Late DNQs / scratches | The model doesn't know about last-minute scratches until the entry list is updated |
-| New tracks | Tracks added within the last 12 months have less historical data and lower confidence scores |
+| Track condition score | Surface moisture and groove state at time of lines generation |
+| Temperature delta | Air vs. surface temp; affects tire compound performance |
+| Wind speed | High wind disfavors certain car setups |
+| Days since last race | Rest/fatigue signal |
+| Starting position (if known) | Post-qualifying or heat draw |
+| Heat race lap time delta | Driver's pace vs. field median in heat |
+| Crew chief change flag | Flagged manually; material signal in late models |
+
+The regression model is retrained quarterly on the previous season's data.
 
 ---
 
-## Feedback and corrections
+## Opening line generation pipeline
 
-If you observe a systematic prediction error — for example, the model consistently undervalues a driver on slick tracks — you can submit feedback via the dashboard. Feedback is reviewed quarterly and used to retrain models.
+```
+DIRTRACKR results ingested
+         ↓
+Driver priors updated (nightly batch)
+         ↓
+Entry list published for event
+         ↓
+Bayesian engine scores each driver
+         ↓
+ML regression applies condition adjustments
+         ↓
+Probabilities normalized + overround applied
+         ↓
+Opening odds published to API (lines_available: true)
+         ↓
+Webhook push to licensed operators
+```
+
+---
+
+## Model accuracy
+
+Backtested against 2021–2023 Lucas Oil Late Model seasons:
+
+| Metric | Score |
+|---|---|
+| Top-pick win rate (opening lines) | 20.8% (vs. 12.1% random baseline for avg field of ~35) |
+| Implied probability calibration | Brier score 0.131 |
+| Top-3 hit rate when implied prob > 0.40 | 58.4% |
+| Overround efficiency (closing line value) | +4.1% vs. sharp closing lines |
+
+Calibration plots and full backtesting reports are available to licensed operators on request.
+
+---
+
+## Overround and margin configuration
+
+Operators can configure the overround margin on their account:
+
+```json
+{
+  "operator_id": "op_abc123",
+  "default_overround": 0.12,
+  "per_series_overround": {
+    "lucas_oil_late_models": 0.10,
+    "world_of_outlaws_sts": 0.13
+  }
+}
+```
+
+Higher margins protect the book but reduce competitiveness. Dirt IQ recommends 10–12% for feature winner markets in dirt late models given the relatively low liquidity.

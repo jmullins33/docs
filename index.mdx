@@ -1,60 +1,81 @@
 ---
 title: "Dirt IQ"
-description: "Predictive analytics for dirt track racing — harness historical data, real-time conditions, and machine learning to gain the edge on and off the track."
+description: "Odds compilation and risk modeling for dirt track motorsports — opening lines, real-time adjustments, and sharp money signals delivered as a data feed to sportsbooks and white-label operators."
 ---
 
 ## What is Dirt IQ?
 
-Dirt IQ is a predictive analytics platform built specifically for dirt track racing. Whether you're a team owner making setup decisions, a promoter optimizing race cards, or a fan looking for data-driven picks, Dirt IQ puts the power of machine learning and real-time data at your fingertips.
+Dirt IQ is a **B2B odds data feed** for dirt track racing. We ingest historical results from DIRTRACKR and live event data to produce opening lines, probability-weighted odds, and real-time line adjustments for sportsbook operators.
+
+Think Amelco or IMG Arena — but purpose-built for the niche motorsports gap that major odds compilers ignore.
 
 <CardGroup cols={2}>
-  <Card title="Race Predictions" icon="flag-checkered" href="/analytics/race-predictions">
-    Win probability, podium likelihood, and head-to-head matchup scores for every event.
+  <Card title="Opening Lines" icon="scale-balanced" href="/analytics/opening-lines">
+    Bayesian-derived pre-event odds for every driver in the entry list, calibrated against a decade of Lucas Oil results data.
   </Card>
-  <Card title="Track Analysis" icon="road" href="/concepts/track-conditions">
-    Live track condition scoring based on moisture, groove width, temperature, and prep data.
+  <Card title="Line Movement" icon="arrow-trend-up" href="/analytics/line-movement">
+    Real-time odds adjustments triggered by qualifying results, heat race outcomes, and track condition changes.
   </Card>
-  <Card title="Driver Metrics" icon="gauge-high" href="/concepts/driver-metrics">
-    Deep performance profiles including surface-specific stats, recent form, and fatigue indices.
+  <Card title="Sharp Money Detection" icon="triangle-exclamation" href="/analytics/sharp-money">
+    Algorithmic signals that identify when betting patterns deviate from modeled probability — protecting your book.
   </Card>
-  <Card title="Weather Integration" icon="cloud-sun-rain" href="/analytics/weather-integration">
-    Hyperlocal weather feeds fused directly into prediction models before the green flag drops.
+  <Card title="Risk Feed API" icon="webhook" href="/api-reference/introduction">
+    Structured JSON feed for direct integration into your risk management and trading platform.
   </Card>
 </CardGroup>
 
+---
+
+## Why dirt track racing
+
+Niche motorsports represent an underserved but growing betting market. Established odds compilers — Amelco, Sportech, IMG Arena — do not cover Lucas Oil Late Models, World of Outlaws, or regional short-track series. Sportsbooks that want to offer these markets either build in-house or go without lines entirely.
+
+Dirt IQ fills that gap with a defensible data moat: structured results history going back to 2010, track-level surface modeling, and real-time integration with timing systems that major data providers don't touch.
+
+---
+
+## Launch scope: Lucas Oil Late Models
+
+The initial product targets the **Lucas Oil Late Model Dirt Series** — the most nationally prominent dirt late model series, with consistent car counts, national TV exposure, and a growing betting handle. DIRTRACKR provides the historical results backbone.
+
+| Series | Data Source | Coverage |
+|---|---|---|
+| Lucas Oil Late Models | DIRTRACKR | Full launch |
+| World of Outlaws STS | DIRTRACKR / partner feeds | Q2 expansion |
+| CARS Tour | DIRTRACKR | Q3 expansion |
+| Regional late models | DIRTRACKR | Roadmap |
+
+---
+
 ## How it works
 
-Dirt IQ ingests data from multiple sources — historical race results, live timing feeds, weather stations, and track prep logs — and runs them through a suite of purpose-built ML models. Outputs are available as a REST API, a live dashboard, and webhook events that fire as race conditions change throughout the night.
-
 <Steps>
-  <Step title="Connect your data sources">
-    Link timing systems, weather stations, and your race management software via our integrations catalog or the REST API.
+  <Step title="Ingest historical results">
+    DIRTRACKR data is ingested, cleaned, and loaded into the Dirt IQ results database. Driver and track records are normalized across series and seasons.
   </Step>
-  <Step title="Generate predictions">
-    Call `/predictions` with an event ID and division to receive ranked win probabilities, confidence scores, and key contributing factors for each driver.
+  <Step title="Generate opening lines">
+    When an entry list is published, the Bayesian odds engine scores each driver against field depth, track affinity, and recent form — producing probability estimates that are converted to opening moneyline and head-to-head odds.
   </Step>
-  <Step title="Act on real-time updates">
-    Subscribe to webhook events and receive updated predictions automatically as track conditions evolve from hot laps through the feature event.
+  <Step title="Adjust lines in real time">
+    As qualifying, heat races, and track conditions come in, the model recalculates. Your trading desk receives updated odds via the API before your book gets exposure.
+  </Step>
+  <Step title="Flag sharp action">
+    The sharp money detection algorithm monitors deviation between book position and model probability, surfacing alerts when a market looks mispriced or when unusual volume is concentrating on specific drivers.
   </Step>
 </Steps>
 
-## Supported series and surfaces
+---
 
-| Division | Surface Types | Status |
-|---|---|---|
-| Sprint Cars (Winged) | Clay, Slick, Cushion | Full model support |
-| Sprint Cars (Non-Wing) | Clay, Slick | Full model support |
-| Late Models | Clay, Slick, Cushion | Full model support |
-| Modifieds | Clay, Slick | Full model support |
-| Street Stocks / Pure Stocks | Clay | Beta |
-| Micro Sprints | Clay, Slick | Beta |
+## Licensing model
 
-<Note>
-  Don't see your division? We're actively expanding coverage. [Contact us](mailto:support@dirtiq.com) to discuss early access for your series.
-</Note>
+Dirt IQ is sold as a **data feed license** to:
 
-## Ready to start?
+- Sportsbook operators and white-label platforms
+- Risk management technology providers
+- Daily fantasy operators seeking prop odds
 
-<Card title="Quickstart guide" icon="rocket" href="/quickstart" horizontal>
-  Get your first race prediction in under five minutes.
+Pricing is per-series, per-season. Contact [sales@dirtiq.com](mailto:sales@dirtiq.com) for operator pricing.
+
+<Card title="API Reference" icon="code" href="/api-reference/introduction" horizontal>
+  Review the full feed specification before licensing discussions.
 </Card>

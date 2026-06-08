@@ -1,110 +1,132 @@
 ---
-title: "Real-Time Insights"
-description: "Live race analytics — lap-by-lap updates, condition changes, and in-race prediction refreshes."
+title: "Sharp Money Detection"
+description: "How Dirt IQ identifies when betting patterns deviate from modeled probability — and what to do about it."
 ---
 
-## Overview
+## Why sharp detection matters in niche markets
 
-Dirt IQ's real-time layer processes live timing feeds and sensor data to update predictions and surface actionable insights as a race night unfolds. Real-time features are available on the Pro and Enterprise plans.
+Niche motorsport markets are particularly vulnerable to informed bettors (sharps) because:
 
----
+1. The market is small — a few large bets can move handle significantly relative to the market size
+2. Information asymmetry exists — insiders (crew members, track officials, promoters) have real edges on conditions, car setup, and driver health that the model doesn't capture
+3. Lines may sit untouched for hours before the event, giving sharps time to find value
 
-## Connecting a live timing feed
-
-Dirt IQ integrates with the most widely used dirt track timing systems:
-
-| System | Integration type | Setup |
-|---|---|---|
-| MyLaps Orbits | Direct API push | Register your transponder key in the dashboard |
-| RACEceivers RaceResult | Webhook push | Point the RaceResult output URL to your Dirt IQ endpoint |
-| AMB/MyLaps X2 | Direct API push | Register your X2 API credentials |
-| Race Monitor | Polling pull | Enter your Race Monitor event URL |
-| Custom / CSV | File upload | POST lap data to `/events/{id}/laps` |
-
-Once connected, Dirt IQ begins processing lap data within 2 seconds of each crossing.
+Dirt IQ's sharp money detection layer monitors the deviation between your book's position and the model's probability distribution to surface alerts before meaningful exposure accumulates.
 
 ---
 
-## What updates in real time
+## How the algorithm works
 
-### Prediction updates
+The deviation score measures how far a driver's current implied market probability (based on your book's betting volume) has drifted from Dirt IQ's modeled probability:
 
-After each lap batch (typically every 2–5 laps during the feature), Dirt IQ recalculates win probabilities factoring in:
-
-- **Current position and laps remaining** — a driver running P2 with 5 laps to go has a materially different probability than the same driver in P2 with 20 laps to go
-- **Gap to leader and gap ahead** — tight gaps = more likely position changes
-- **Observed lap time trend** — driver speeding up or fading relative to competition
-- **Track condition score** — updated from weather station at the same interval
-
-Updated predictions fire a `prediction.updated` webhook event with `trigger: "lap_data"`.
-
-### Track condition updates
-
-The condition score is recalculated every 5 minutes using the latest weather station data. Large swings (±10 points or more) fire a `track_conditions.changed` webhook event.
-
-### Caution and incident alerts
-
-When caution laps are detected (stationary lap time spike across multiple cars), Dirt IQ fires a `race.caution` event with:
-
-- Estimated lap of caution
-- Cars involved (if timing data is granular enough)
-- Restart order projection
-
----
-
-## WebSocket feed (beta)
-
-For applications that need sub-second updates without managing webhooks, Dirt IQ offers a WebSocket feed:
-
-```javascript
-const ws = new WebSocket(
-  "wss://stream.dirtiq.com/v1/events/evt_2024_eldora_4crown",
-  { headers: { "Authorization": "Bearer YOUR_API_KEY" } }
-);
-
-ws.onmessage = (event) => {
-  const update = JSON.parse(event.data);
-  console.log(update.type, update.payload);
-};
+```
+deviation_score = (book_implied_prob - model_implied_prob) / model_std_dev
 ```
 
-Message types:
+A score of **1.0** means the market has moved 1 standard deviation from the model. A score of **2.0+** is flagged for review.
 
-| Type | Payload | Frequency |
+### Alert levels
+
+| Deviation Score | Alert Level | Recommended action |
 |---|---|---|
-| `lap_recorded` | Driver, lap time, position | Per crossing |
-| `prediction_updated` | Full prediction object | Every 2–5 laps |
-| `condition_updated` | New condition score + components | Every 5 min |
-| `caution` | Lap number, involved cars | As detected |
-| `race_status` | Green / yellow / red / complete | On change |
+| 1.0 – 1.5 | `low` | Monitor; no immediate action required |
+| 1.5 – 2.5 | `medium` | Review line; consider tightening limits |
+| 2.5+ | `high` | Immediate line review; consider suspension |
 
-<Note>
-  The WebSocket feed is in beta. Message format may change before GA. Pin to a specific API version header to avoid breaking changes.
-</Note>
+Alert thresholds are configurable per operator.
 
 ---
 
-## In-race overlays
+## Alert payload
 
-The Dirt IQ dashboard includes an embeddable overlay designed for trackside screens and broadcast use:
+```json
+{
+  "type": "sharp_alert.triggered",
+  "event_id": "evt_2024_slinger_nationals",
+  "market": "feature_winner",
+  "timestamp": "2024-08-16T19:47:00Z",
+  "driver_id": "drv_77",
+  "driver_name": "Chris Madden",
+  "alert_level": "medium",
+  "deviation_score": 2.1,
+  "model_implied_probability": 0.08,
+  "book_implied_probability": 0.14,
+  "volume_percentile": 89,
+  "message": "Unusual volume on drv_77 at +350; model implies +750. Consider line review.",
+  "context": {
+    "recent_sharp_bets_count": 3,
+    "avg_bet_size_percentile": 94,
+    "time_since_last_line_update_min": 47
+  }
+}
+```
 
-- Live win-probability bar chart, updating each lap
-- Driver trending up/down indicators (moving faster or slower than baseline)
-- Track condition score with visual surface-state indicator
-- Head-to-head matchup probability for any two drivers
+Key context fields:
 
-Embed code is available from **Dashboard → Events → [Event] → Overlay**.
+- `volume_percentile` — where this driver's bet volume ranks vs. the rest of the field (89 = top 11%)
+- `avg_bet_size_percentile` — whether the bets are large relative to the market's typical ticket size
+- `time_since_last_line_update_min` — stale lines are more vulnerable; a 47-minute-old line with high volume is a stronger signal than a freshly updated one
 
 ---
 
-## Latency and reliability
+## Patterns the algorithm flags
 
-| Metric | Target |
+Beyond the raw deviation score, the algorithm looks for specific betting patterns:
+
+| Pattern | Description |
 |---|---|
-| Timing feed ingestion | < 2 seconds from crossing |
-| Prediction recalculation | < 500ms after lap batch |
-| Webhook delivery | < 1 second (p95) |
-| WebSocket message latency | < 200ms (p95) |
-| Uptime SLA (Pro / Enterprise) | 99.5% / 99.9% |
+| **Steam move** | Multiple accounts betting the same driver within a short window |
+| **Stale line arbitrage** | Large bets placed immediately after a qualifying result that hasn't updated the line yet |
+| **Cross-market correlation** | Unusual volume on a driver in multiple markets simultaneously (e.g., feature winner + top 3) |
+| **Late sharp action** | Volume spike in the 30–60 min window before feature start |
 
-If a timing connection drops, Dirt IQ continues updating condition scores and weather-driven predictions. Lap-based updates resume automatically when the feed reconnects — no manual intervention required.
+Pattern detection requires the operator to push their bet-level data to Dirt IQ via the `/risk/bets` inbound feed. This is optional — deviation scoring works without it, but pattern detection requires it.
+
+---
+
+## Configuring thresholds
+
+```bash
+PATCH /operators/me/sharp-detection
+{
+  "enabled": true,
+  "low_threshold": 1.0,
+  "medium_threshold": 1.8,
+  "high_threshold": 2.5,
+  "alert_channels": ["webhook", "email"],
+  "alert_email": "trading@yourbook.com"
+}
+```
+
+---
+
+## Sending bet data for pattern detection
+
+If you want pattern detection in addition to deviation scoring:
+
+```bash
+POST /risk/bets
+{
+  "event_id": "evt_2024_slinger_nationals",
+  "market": "feature_winner",
+  "driver_id": "drv_77",
+  "bet_amount": 500,
+  "odds_taken": 350,
+  "timestamp": "2024-08-16T19:45:00Z",
+  "account_hash": "sha256_of_account_id"
+}
+```
+
+Account IDs are hashed before transmission — Dirt IQ never receives raw customer identifiers.
+
+---
+
+## What Dirt IQ does not do
+
+Dirt IQ provides signals; your trading desk makes decisions. The system does not:
+
+- Automatically suspend markets (that remains your platform's responsibility)
+- Identify or track individual bettors across operators
+- Advise on regulatory compliance for sharp betting policies
+
+Dirt IQ's deviation scores are a risk management input, not a definitive classification of a bet as "sharp" or "square."

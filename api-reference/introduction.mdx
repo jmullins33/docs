@@ -1,11 +1,9 @@
 ---
 title: "API Introduction"
-description: "The Dirt IQ REST API — authentication, base URL, rate limits, and versioning."
+description: "The Dirt IQ odds feed API — authentication, base URL, rate limits, and feed structure for sportsbook operators."
 ---
 
 ## Base URL
-
-All API requests are made to:
 
 ```
 https://api.dirtiq.com/v1
@@ -15,40 +13,52 @@ https://api.dirtiq.com/v1
 
 ## Authentication
 
-Every request must include an `Authorization` header with a Bearer token:
+All requests require a Bearer token in the `Authorization` header:
 
 ```bash
 Authorization: Bearer YOUR_API_KEY
 ```
 
-API keys are scoped to your account and can be created or revoked from the [Dirt IQ dashboard](https://app.dirtiq.com/api-keys). Use separate keys for development and production environments.
+API keys are scoped to your operator account and licensed series. A key for `lucas_oil_late_models` will not return data for unlicensed series. Keys are managed from the [operator portal](https://app.dirtiq.com/api-keys).
 
 <Warning>
-  Never expose your API key in client-side code or commit it to source control. If a key is compromised, revoke it immediately from the dashboard.
+  Never expose your API key in client-side code or commit it to source control. Rotate compromised keys immediately from the operator portal.
 </Warning>
 
 ---
 
-## Request format
+## Request and response format
 
-All `POST` and `PATCH` requests must send JSON with the appropriate content type header:
+All `POST` and `PATCH` requests must include:
 
 ```
 Content-Type: application/json
 ```
 
----
-
-## Response format
-
-Responses are always JSON. Successful responses return HTTP `200` or `201`. Error responses return a consistent error object:
+Responses are always JSON. Errors use a consistent structure:
 
 ```json
 {
   "error": 422,
-  "message": "division must be one of: sprint_wing, sprint_nonwing, late_model, modified, street_stock, micro_sprint"
+  "message": "series 'nascar_cup' is not licensed on your account"
 }
 ```
+
+---
+
+## Core endpoints
+
+| Endpoint | Description |
+|---|---|
+| `GET /events` | List upcoming and completed events for your licensed series |
+| `GET /odds/{event_id}` | Retrieve current odds for an event |
+| `POST /odds` | Request odds for a specific event and market (on-demand) |
+| `DELETE /odds/{id}` | Remove a stored odds snapshot |
+| `POST /webhooks` | Register a webhook endpoint |
+| `POST /risk/bets` | Push bet-level data for pattern detection |
+| `GET /drivers/{id}` | Retrieve driver profile and metrics |
+
+Full schema reference for each endpoint is in the sections below.
 
 ---
 
@@ -58,25 +68,45 @@ Responses are always JSON. Successful responses return HTTP `200` or `201`. Erro
 |---|---|---|
 | Starter | 60 | 120 |
 | Pro | 300 | 600 |
-| Enterprise | Custom | Custom |
+| Enterprise | Unlimited | — |
 
-Rate limit headers are included in every response:
+Headers on every response:
 
 ```
 X-RateLimit-Limit: 300
 X-RateLimit-Remaining: 284
-X-RateLimit-Reset: 1723305000
+X-RateLimit-Reset: 1723305060
 ```
 
-When the limit is exceeded, the API returns `429 Too Many Requests`. Implement exponential backoff before retrying.
+`429 Too Many Requests` is returned when the limit is exceeded. Use exponential backoff before retrying.
+
+---
+
+## Pagination
+
+List endpoints use cursor-based pagination:
+
+```bash
+GET /events?limit=20&after=evt_01hx9p4n
+```
+
+```json
+{
+  "data": [...],
+  "pagination": {
+    "has_more": true,
+    "next_cursor": "evt_01hx7k2m"
+  }
+}
+```
 
 ---
 
 ## Versioning
 
-The current stable API version is **v1**. Breaking changes will be introduced under a new version prefix (e.g., `/v2`). Non-breaking additions (new fields, new optional parameters) are made to the existing version without notice.
+Current stable version: **v1**. Breaking changes will ship under `/v2`. Non-breaking additions (new fields, optional parameters) are deployed to v1 without notice.
 
-To pin to a specific minor version, pass a version header:
+To pin to a specific monthly release:
 
 ```
 Dirt-IQ-Version: 2024-08
@@ -84,43 +114,31 @@ Dirt-IQ-Version: 2024-08
 
 ---
 
-## Pagination
+## Odds format
 
-List endpoints support cursor-based pagination:
+Default is American moneyline. Override per-request:
 
-```bash
-GET /predictions?limit=20&after=pred_01hx7k2m
 ```
-
-Responses include a `pagination` object:
-
-```json
-{
-  "data": [...],
-  "pagination": {
-    "has_more": true,
-    "next_cursor": "pred_01hx9p4n"
-  }
-}
+Accept-Odds-Format: american    # default
+Accept-Odds-Format: decimal
+Accept-Odds-Format: fractional
 ```
-
-Pass `next_cursor` as the `after` parameter in your next request.
 
 ---
 
 ## Endpoints
 
 <CardGroup cols={2}>
-  <Card title="List predictions" icon="list" href="/api-reference/endpoint/get">
-    Retrieve a filtered list of race predictions.
+  <Card title="List odds" icon="list" href="/api-reference/endpoint/get">
+    Retrieve current odds for a licensed event.
   </Card>
-  <Card title="Create prediction" icon="plus" href="/api-reference/endpoint/create">
-    Generate a new prediction for an upcoming or recent event.
+  <Card title="Request odds" icon="plus" href="/api-reference/endpoint/create">
+    On-demand odds generation for a specific event and market.
   </Card>
-  <Card title="Delete prediction" icon="trash" href="/api-reference/endpoint/delete">
-    Remove a prediction record by ID.
+  <Card title="Delete odds snapshot" icon="trash" href="/api-reference/endpoint/delete">
+    Remove a stored odds object by ID.
   </Card>
   <Card title="Webhooks" icon="webhook" href="/api-reference/endpoint/webhook">
-    Receive real-time updates when predictions and conditions change.
+    Receive `odds.updated`, `sharp_alert.triggered`, and `event.settled` pushes in real time.
   </Card>
 </CardGroup>

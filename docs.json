@@ -29,7 +29,7 @@
             ]
           },
           {
-            "group": "Analytics",
+            "group": "Odds & Risk",
             "pages": [
               "analytics/race-predictions",
               "analytics/weather-integration",

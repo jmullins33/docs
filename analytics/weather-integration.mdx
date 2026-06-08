@@ -1,128 +1,116 @@
 ---
-title: "Weather Integration"
-description: "How Dirt IQ incorporates weather data into race predictions and track condition modeling."
+title: "Line Movement"
+description: "What triggers real-time odds recalculations and how fast updates reach your trading platform."
 ---
 
-## Why weather matters in dirt track racing
+## Triggers for line recalculation
 
-Weather is arguably the single biggest external variable in dirt track racing. Rain before a race creates a heavy, multi-groove surface that rewards powerful, aggressive setups. A hot, dry, windy afternoon can turn that same track into a one-lane parade by the time the feature runs.
+Dirt IQ recalculates odds automatically when any of the following occur:
 
-Dirt IQ fuses hyperlocal weather data directly into the track condition and prediction models so that weather impacts are automatically reflected in every output.
-
----
-
-## Data sources
-
-Dirt IQ pulls from three weather data tiers, in priority order:
-
-<Steps>
-  <Step title="On-site weather station">
-    If the track has registered a weather station with Dirt IQ, that station's readings are used directly. Readings are ingested every 5 minutes. This is the most accurate option and produces the highest `confidence` scores.
-  </Step>
-  <Step title="Nearby ASOS / AWOS station">
-    For tracks without a registered station, Dirt IQ uses the closest FAA ASOS/AWOS airport weather station within 30 miles. Accuracy decreases with distance and elevation difference.
-  </Step>
-  <Step title="Grid-based NWS forecast">
-    For events more than 24 hours in the future, Dirt IQ uses National Weather Service gridded forecasts at 2.5km resolution. These are updated hourly and provide temperature, precipitation probability, humidity, and wind.
-  </Step>
-</Steps>
-
----
-
-## Weather variables used
-
-| Variable | How it's used |
+| Trigger | Typical odds impact |
 |---|---|
-| Precipitation (last 24h, last 48h) | Primary driver of moisture index |
-| Precipitation forecast (next 4h) | Adjusts condition evolution curve; rain mid-program has large impact |
-| Air temperature | Combined with dew point to calculate evaporation rate |
-| Dew point | High dew point slows surface drying significantly |
-| Wind speed and direction | Higher wind speed accelerates evaporative drying |
-| Track surface temperature | Derived from solar radiation and air temp; direct input to moisture model |
-| Cloud cover | Modulates solar radiation and surface heating |
+| Hot laps / qualifying complete | Low–medium; adjusts for observed pace |
+| Heat race result posted | Medium–high; starting position and heat performance are significant signals |
+| Track condition score shifts ±10 points | Medium; affects drivers with pronounced surface splits |
+| Weather alert (precipitation forecast changes) | Low–medium; primarily affects cancellation risk |
+| Scratch / DNS posted | High; probability redistributed across remaining drivers |
 
 ---
 
-## Weather-adjusted predictions
+## Update latency
 
-Weather feeds into predictions in two ways:
+| Trigger type | Median update latency | P95 latency |
+|---|---|---|
+| Heat race result (DIRTRACKR post) | 45 seconds | 90 seconds |
+| Live timing integration (direct feed) | < 5 seconds | 15 seconds |
+| Weather condition update | 5 minutes (batch) | 10 minutes |
+| Manual scratch / operator note | < 10 seconds | 30 seconds |
 
-### 1. Track condition adjustment
-
-Weather data updates the live track condition score before every prediction recalculation. A sudden rain shower mid-program will spike the moisture index and shift the condition score upward, increasing the win probabilities of drivers with strong heavy-track profiles.
-
-### 2. Driver-specific weather sensitivity
-
-Some drivers have measurably different performance depending on weather-driven surface changes. Dirt IQ tracks this at the individual level:
-
-```json
-"weather_sensitivity": {
-  "heavy_to_slick_transition": "positive",
-  "rain_cancellation_risk": 0.12
-}
-```
-
-- `heavy_to_slick_transition: "positive"` — this driver tends to get better relative to the field as the track dries
-- `rain_cancellation_risk` — probability that the event is rained out based on current forecast
+DIRTRACKR-sourced results require an ingestion round-trip, which introduces the bulk of the latency. Tracks with direct timing integrations get significantly faster updates.
 
 ---
 
-## Rain-out probability
+## The update payload
 
-Every prediction includes a `cancellation_risk` field for events within 12 hours:
+When lines change, the `odds.updated` webhook fires with a `changes` array showing only what moved:
 
 ```json
 {
-  "event_id": "evt_2024_jackson_motorplex",
-  "cancellation_risk": 0.18,
-  "forecast_summary": "Scattered showers possible after 8pm; 0.2in accumulation chance"
+  "type": "odds.updated",
+  "trigger": "heat_results",
+  "event_id": "evt_2024_slinger_nationals",
+  "timestamp": "2024-08-16T20:14:32Z",
+  "changes": [
+    {
+      "driver_id": "drv_42",
+      "prev_american_odds": -165,
+      "new_american_odds": -200,
+      "prev_implied_probability": 0.21,
+      "new_implied_probability": 0.26,
+      "trigger_reason": "won_heat_dominant",
+      "positions_moved": null
+    },
+    {
+      "driver_id": "drv_18",
+      "prev_american_odds": -125,
+      "new_american_odds": +110,
+      "prev_implied_probability": 0.18,
+      "new_implied_probability": 0.12,
+      "trigger_reason": "lost_heat_back_of_pack",
+      "positions_moved": null
+    }
+  ]
 }
 ```
 
-This is derived from NWS hourly precipitation probability and historical rain-out rates for that track's geography and month.
+`trigger_reason` is a human-readable string explaining the primary driver of the change — useful for audit logs and trading desk context.
 
 ---
 
-## Registering a weather station
+## Scratch handling
 
-To connect your track's on-site weather station:
-
-1. Go to **Dashboard → Tracks → Your Track → Weather Station**
-2. Enter the station's IP address or API endpoint
-3. Confirm the Dirt IQ data schema is being sent (see below)
-
-### Required data format
-
-Your station must POST data every 5 minutes to:
-
-```
-POST https://api.dirtiq.com/v1/tracks/{track_id}/weather
-```
-
-With the following JSON body:
+When a driver scratches or is marked DNS, their probability mass is redistributed proportionally across the remaining field:
 
 ```json
 {
-  "timestamp": "2024-08-10T19:35:00Z",
-  "temp_f": 84.2,
-  "humidity_pct": 52.0,
-  "wind_mph": 8.3,
-  "wind_direction_deg": 225,
-  "precip_last_hour_in": 0.0,
-  "surface_temp_f": 101.4
+  "type": "odds.updated",
+  "trigger": "scratch",
+  "scratched_driver": {
+    "driver_id": "drv_77",
+    "name": "Chris Madden",
+    "prev_implied_probability": 0.15,
+    "scratch_reason": "mechanical_dns"
+  },
+  "field_adjustment": "probability redistributed to remaining 33 drivers"
 }
 ```
+
+All drivers in the field receive proportionally adjusted lines in the same payload.
 
 ---
 
-## Using a custom weather station ID
+## Polling vs. webhooks
 
-If a specific race event is at a location better served by a different station than the track's default, pass `weather_station_id` in your prediction request:
+| Approach | Recommended for |
+|---|---|
+| Webhook (`odds.updated`) | Primary integration for any real-time trading platform |
+| Poll `GET /odds/{event_id}` | Backup, reconciliation, or low-frequency operators |
+
+Polling is rate-limited to once per 60 seconds per event on Starter plans. Pro and Enterprise have no polling restrictions. However, webhooks are always lower-latency and preferred for race-night operations.
+
+---
+
+## Odds suspension
+
+When the feature event start is detected (via timing feed or manual trigger), Dirt IQ fires `odds.suspended` and stops recalculating:
 
 ```json
 {
-  "event_id": "evt_2024_special_event",
-  "division": "sprint_wing",
-  "weather_station_id": "KWST_custom_01"
+  "type": "odds.suspended",
+  "event_id": "evt_2024_slinger_nationals",
+  "reason": "feature_start",
+  "timestamp": "2024-08-16T21:02:00Z"
 }
 ```
+
+Odds remain suspended until results are posted and the market settles. Operators should use this event to close betting on their platform.

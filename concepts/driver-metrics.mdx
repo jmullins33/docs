@@ -1,124 +1,93 @@
 ---
 title: "Driver Metrics"
-description: "The performance metrics Dirt IQ uses to profile every driver in the database."
+description: "The driver profiling data that feeds the Bayesian odds engine — sourced from DIRTRACKR and live timing."
 ---
 
-## Overview
+## Data source
 
-Driver performance metrics are the foundation of every prediction. Dirt IQ maintains a continuously updated profile for each driver that goes well beyond raw win counts — capturing surface preferences, form trajectories, track affinities, and more.
+All historical driver metrics are derived from **DIRTRACKR**, the primary structured results database for Lucas Oil Late Models and affiliated dirt late model series. DIRTRACKR maintains:
 
-All metrics are available via the `/drivers/{id}` endpoint and are embedded in every prediction response.
+- Full finishing order for every Lucas Oil national event
+- Heat race, consolation, and qualifying results
+- Car number and team changes over time
+- DNF, DNQ, and provisional finish flags
+
+Dirt IQ ingests DIRTRACKR data nightly via batch pull. Live timing data (lap times, real-time position) is ingested during race nights via direct timing system integrations.
 
 ---
 
-## Core metrics
+## Core metrics used in the odds engine
 
-### Form score
+### Career win rate (series-adjusted)
 
-A rolling performance score from **0 to 100** representing how well a driver has been performing over the past 30 days relative to their career baseline.
-
-- Calculated from finish positions weighted by field depth (winning a 30-car regional show counts more than winning a 12-car show)
-- Decayed by recency — last weekend counts more than three weekends ago
-- Normalized to 100 within the division so scores are comparable across drivers
+Raw win rate normalized for field depth. Winning a 35-car Lucas Oil national event receives a higher weight than winning a 15-car regional show.
 
 ```
-form_score: 91.2  // high — driver is in exceptional recent form
-form_score: 54.0  // average — consistent with career baseline
-form_score: 22.7  // low — below-average recent run of results
+adjusted_win_rate = wins / starts × field_depth_multiplier
 ```
+
+Field depth multiplier is calculated as `avg_field_size / 20` (20-car field = 1.0 baseline).
+
+### Rolling form score
+
+A 0–100 score representing recent performance relative to career baseline, with exponential decay (half-life = 90 days). The form score is the primary recency signal in the Bayesian prior.
 
 ### Track affinity score
 
-A score from **0 to 100** measuring how well a driver performs at a specific track relative to the rest of the field. High affinity means the driver consistently outperforms expectations at that venue.
+Win rate and average finish at a specific track, weighted for recency. Drivers with 10+ starts at a venue have a well-calibrated affinity score; those with fewer than 3 starts are given a prior regressed toward their overall profile.
 
-- Tracks driver results at this specific venue over their career
-- Weighted for recency — results from the past two seasons count double
-- Accounts for field depth at each event
+### Surface performance split
 
-### Surface performance breakdown
+Every driver's record is segmented by condition band:
 
-Every driver's stats are split by surface type:
-
-| Surface | Win Rate | Avg Finish | Laps Led % |
+| Band | Score Range | Win Rate | Avg Finish |
 |---|---|---|---|
-| Heavy clay (score 61–100) | — | — | — |
-| Tacky clay (score 41–60) | — | — | — |
-| Slick clay (score 0–40) | — | — | — |
+| Heavy | 61–100 | — | — |
+| Tacky | 41–60 | — | — |
+| Slick | 0–40 | — | — |
 
-This breakdown is the key input to the track condition model — a driver who dominates tacky conditions but struggles on a slick gets a lower win probability when the model projects a dry, one-groove feature.
+This split is the primary input to the condition-adjusted odds. A driver who is strong across all bands is a reliable favorite; a driver with a pronounced split is treated as a conditional favorite.
 
----
+### Starting position history
 
-## Extended metrics
+Starting position has a measurable effect on win probability in dirt track racing — track position is often decisive on a slick surface. The model maintains:
 
-### Fatigue index
-
-Measures physical workload over the past 7 days:
-
-- Counts starts, travel distance, and race miles in the window
-- High fatigue (index > 80) mildly penalizes projected performance
-- Most relevant for drivers on grueling summer travel schedules
-
-### Starting position impact
-
-Some drivers are significantly better from the front; others are exceptional at threading through traffic:
-
-- **Front-row advantage**: how much better a driver performs starting P1–P4 vs. P5+
-- **Passing grade**: historical success rate advancing through the field from mid-pack and back
-
-### Heat race calibration
-
-When heat race results are available (and `include_heat_race_data: true` is set), the model factors in:
-
-- Heat race finish vs. expected finish (did the driver over- or under-perform?)
-- Observed lap times relative to competitors (timing feed required)
-- Car damage or mechanical issues flagged in the timing data
+- **Front-row win conversion rate**: how often a driver converts a P1–P4 start to a win
+- **Charge-through rate**: average positions gained from P10+ starts
 
 ---
 
-## Accessing driver data
+## Metrics used for line adjustment (post-qualifying)
+
+Once qualifying or time trials are complete, the following additional metrics come into play:
+
+| Metric | Signal |
+|---|---|
+| Qualifying time delta | Driver's lap time vs. field median — pace signal independent of starting position |
+| Heat race result vs. expected | Over/underperformance in heat relative to model prediction |
+| Observed lap time in heat | Raw speed signal when live timing is connected |
+
+---
+
+## Metrics not currently modeled
+
+| Factor | Status |
+|---|---|
+| Crew chief / team changes | Flagged manually via operator notes; included as binary feature |
+| Tire compound selection | Not captured in DIRTRACKR; roadmap item |
+| Car ownership / engine builder | Partially modeled via team historical performance |
+| Injury / physical condition | Not modeled; treated as data gap |
+
+Missing data is handled by regressing to career averages rather than penalizing drivers with incomplete records.
+
+---
+
+## Accessing driver profiles
 
 ```bash
-# Get a driver's full profile
-GET /drivers/drv_9
-
-# Search drivers by name
-GET /drivers?search=schatz
-
-# Get a driver's history at a specific track
-GET /drivers/drv_9/history?track_id=trk_knoxville
+GET /drivers/{driver_id}
+GET /drivers/{driver_id}/history?track_id=trk_eldora
+GET /drivers?search=overton&series=lucas_oil_late_models
 ```
 
-### Example response
-
-```json
-{
-  "driver_id": "drv_9",
-  "name": "Donny Schatz",
-  "hometown": "Fargo, ND",
-  "career_starts": 3241,
-  "career_wins": 631,
-  "career_win_rate": 0.195,
-  "form_score": 88.3,
-  "surface_stats": {
-    "heavy": { "win_rate": 0.21, "avg_finish": 3.1 },
-    "tacky": { "win_rate": 0.19, "avg_finish": 3.4 },
-    "slick": { "win_rate": 0.17, "avg_finish": 3.8 }
-  },
-  "fatigue_index": 42.0,
-  "last_updated": "2024-08-10T22:14:00Z"
-}
-```
-
----
-
-## Driver database coverage
-
-Dirt IQ maintains profiles for:
-
-- **World of Outlaws STS** — full roster, all seasons since 2010
-- **USAC National** — full roster, all seasons since 2012
-- **iRacing Dirt** — 2018 to present
-- **Regional series** — varies by series; contact us to add coverage
-
-Drivers are matched across series by name and hometown — aliases and maiden names are accounted for. If a driver is missing or has a duplicate, report it via the dashboard.
+Driver profiles are included in every odds response under `drivers[].driver_profile` when the `expand=driver_profile` query parameter is passed.

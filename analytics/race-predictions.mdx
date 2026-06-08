@@ -1,126 +1,95 @@
 ---
-title: "Race Predictions"
-description: "Win probabilities, podium likelihoods, and matchup scores for every dirt track event."
+title: "Opening Lines"
+description: "How Dirt IQ generates and publishes opening odds for Lucas Oil Late Model events."
 ---
 
-## What's in a prediction
+## When lines become available
 
-Every Dirt IQ race prediction returns a ranked list of drivers with the following outputs for each:
+Lines are generated as soon as the entry list for an event is published and marked complete in DIRTRACKR. The API field `lines_available` on the event object transitions from `false` to `true`, and a `odds.published` webhook fires to all licensed subscribers.
 
-| Output | Range | Description |
+Typical timeline for a Lucas Oil national event:
+
+| Milestone | Lines status |
+|---|---|
+| Entry list published (T-2 days) | Opening lines generated; `odds.published` webhook fires |
+| Hot laps / time trials (day-of) | Lines recalculated with qualifying data |
+| Heat race 1 complete | Lines recalculated |
+| Heat race 2–4 complete | Lines recalculated |
+| Feature starts | Lines suspended; `odds.suspended` fires |
+| Feature complete | Results posted; market settled |
+
+---
+
+## What the odds object contains
+
+```json
+{
+  "event_id": "evt_2024_slinger_nationals",
+  "market": "feature_winner",
+  "line_status": "open",
+  "model_version": "2024-08",
+  "generated_at": "2024-08-15T14:22:00Z",
+  "track_condition_score": 64.1,
+  "confidence": 0.84,
+  "overround": 1.11,
+  "drivers": [
+    {
+      "driver_id": "drv_42",
+      "name": "Brandon Overton",
+      "car_number": "76",
+      "implied_probability": 0.21,
+      "american_odds": -165,
+      "decimal_odds": 1.61,
+      "fractional_odds": "61/100",
+      "model_edge": 0.03,
+      "form_score": 88.1,
+      "track_affinity": 91.4
+    }
+  ]
+}
+```
+
+Key fields:
+
+| Field | Description |
+|---|---|
+| `implied_probability` | Model probability after overround margin applied |
+| `american_odds` | Standard American moneyline format |
+| `decimal_odds` | European decimal format |
+| `model_edge` | Difference between model probability and market line — positive = underpriced by model |
+| `overround` | Total market book (1.10 = 10% margin) |
+| `confidence` | Model confidence (0–1); lower when entry list is thin or conditions data is missing |
+
+---
+
+## Available markets
+
+| Market | Description | Availability |
 |---|---|---|
-| `win_probability` | 0–1 | Probability of winning the feature event |
-| `podium_probability` | 0–1 | Probability of finishing top 3 |
-| `top5_probability` | 0–1 | Probability of finishing top 5 |
-| `projected_finish` | Integer | Model's most likely finishing position |
-| `form_score` | 0–100 | Rolling 30-day performance rating |
-| `track_affinity` | 0–100 | Historical performance score at this venue |
+| `feature_winner` | Outright winner of the feature event | All events |
+| `top_3_finish` | Driver finishes in top 3 | All events |
+| `top_5_finish` | Driver finishes in top 5 | All events |
+| `head_to_head` | Which of two drivers finishes higher | On request |
+| `winning_margin` | Whether winner leads by 1s, 2s, or 3s+ | Beta |
 
-All probabilities in a prediction sum to 1.0 across the driver pool for each category.
-
----
-
-## Generating a prediction
-
-```bash
-POST /predictions
-```
-
-Minimum required fields are `event_id` and `division`. Optional fields let you tune the prediction:
-
-```json
-{
-  "event_id": "evt_2024_eldora_4crown",
-  "division": "late_model",
-  "track_condition_override": 55.0,
-  "include_heat_race_data": true
-}
-```
-
-The response is available immediately — prediction generation typically takes under 300ms.
+Additional markets can be structured on request for licensed operators.
 
 ---
 
-## Interpreting win probabilities
+## Odds formats
 
-Dirt IQ win probabilities are **calibrated** — a driver with `win_probability: 0.20` should win roughly 20% of the time in similar conditions. This is verified against historical predictions monthly.
+All formats are returned in every response. Set your preferred format via the `Accept-Odds-Format` header:
 
-A few things to keep in mind:
-
-- **Win probability rarely exceeds 0.30** in large, competitive fields. A driver at 0.25 in a 30-car World of Outlaws feature is strongly favored.
-- **Sum-to-one constraint**: if one driver's probability rises (e.g., heat race showed dominant speed), others' probabilities decrease proportionally.
-- **Long-shot value**: the model may assign non-trivial probability (0.05–0.10) to multiple drivers who are genuine podium threats but unlikely to win.
+```
+Accept-Odds-Format: american   # default
+Accept-Odds-Format: decimal
+Accept-Odds-Format: fractional
+```
 
 ---
 
-## Prediction lifecycle
+## Suspending and settling
 
-Predictions are updated at key points in a race night. The `created_at` timestamp tells you when a prediction was last recalculated.
+Dirt IQ automatically fires `odds.suspended` at feature start. Operators are responsible for their own in-play decisions — Dirt IQ does not currently support in-race live betting lines.
 
-```
-Entry list finalized      → Initial prediction
-Hot laps / qualifying     → +qualifying adjustment
-Heat race results         → +heat race adjustment (if enabled)
-Feature start             → +starting position adjustment
-Live timing (optional)    → Rolling lap-by-lap updates
-```
-
-Each update fires a `prediction.updated` webhook if you've registered one. See [Webhooks](/api-reference/endpoint/webhook).
-
----
-
-## Head-to-head matchups
-
-For a focused comparison between two drivers in the same event, use the matchup endpoint:
-
-```bash
-GET /predictions/{prediction_id}/matchup?driver_a=drv_9&driver_b=drv_17
-```
-
-Response:
-
-```json
-{
-  "driver_a": {
-    "driver_id": "drv_9",
-    "name": "Donny Schatz",
-    "win_probability": 0.19,
-    "projected_finish": 2
-  },
-  "driver_b": {
-    "driver_id": "drv_17",
-    "name": "David Gravel",
-    "win_probability": 0.16,
-    "projected_finish": 3
-  },
-  "driver_a_beats_driver_b": 0.54
-}
-```
-
-`driver_a_beats_driver_b` is the probability that driver A finishes ahead of driver B, useful for fantasy head-to-head contests.
-
----
-
-## Polling vs. webhooks
-
-| Approach | Best for |
-|---|---|
-| Poll `/predictions/{id}` on demand | Low-frequency integrations, dashboards that refresh on user action |
-| Webhook subscription | Real-time apps, live overlays, fantasy platforms that need instant updates |
-
-For live race-night applications, webhooks are strongly recommended. Polling more often than every 60 seconds on the same prediction ID is rate-limited.
-
----
-
-## Accuracy and backtesting
-
-Dirt IQ publishes accuracy metrics quarterly. Current benchmarks (World of Outlaws STS, 2023 season):
-
-| Metric | Score |
-|---|---|
-| Top-pick win rate | 22.1% (vs. 14.3% random baseline) |
-| Podium hit rate when top-3 predicted | 61.4% |
-| Brier score (win prediction) | 0.127 |
-| Top-5 hit rate | 72.8% |
-
-Full accuracy reports are available on the [Dirt IQ blog](https://dirtiq.com/blog).
+After results post to DIRTRACKR (typically within 30 minutes of the feature), the event transitions to `settled` and the `event.settled` webhook fires with the final finishing order for reconciliation.

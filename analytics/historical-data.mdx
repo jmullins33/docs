@@ -1,157 +1,119 @@
 ---
 title: "Historical Data"
-description: "Access and analyze Dirt IQ's historical race results, condition logs, and prediction archives."
+description: "DIRTRACKR-sourced results data — what's available, how it's structured, and how to access it."
 ---
 
-## What historical data is available
+## Data source: DIRTRACKR
 
-Dirt IQ maintains a structured archive of:
+Dirt IQ's historical results database is built on top of **DIRTRACKR**, which maintains structured race results for Lucas Oil Late Models and affiliated dirt series going back to 2010. DIRTRACKR data is ingested nightly and normalized into the Dirt IQ schema.
 
-| Dataset | Depth | Update Frequency |
-|---|---|---|
-| Race results (finishes, DNFs, DNQs) | 2010 to present | After each event |
-| Track condition logs | 2018 to present | After each event |
-| Lap timing data | 2020 to present (varies by track) | After each event |
-| Weather station readings | 2021 to present | 5-minute intervals |
-| Prediction archives | 2022 to present | Per prediction generated |
+Coverage:
+
+| Series | Since | Events | Completeness |
+|---|---|---|---|
+| Lucas Oil Late Models | 2010 | ~300+ | Full finishing order, DNFs, DNQs |
+| World of Outlaws STS | 2012 | ~500+ | Full finishing order |
+| CARS Tour | 2015 | ~150+ | Full finishing order |
+| Regional / outlaw late models | Varies | Partial | Best-effort via DIRTRACKR community submissions |
 
 ---
 
-## Accessing historical results
+## Using historical data for model validation
 
-### By event
+Licensed operators and integration partners can pull historical results to backtest their own models or validate Dirt IQ's accuracy:
 
 ```bash
-GET /events/{event_id}/results
+GET /events?series=lucas_oil_late_models&status=completed&since=2021-01-01
 ```
 
-Returns the full finishing order, DNFs, and key timing stats for a completed event.
+Each completed event includes:
 
 ```json
 {
-  "event_id": "evt_2023_knoxville_nationals_feature",
-  "track_id": "trk_knoxville",
-  "division": "sprint_wing",
-  "date": "2023-08-12",
+  "event_id": "evt_2023_eldora_dream",
+  "series": "lucas_oil_late_models",
+  "track_id": "trk_eldora",
+  "date": "2023-06-09",
+  "status": "completed",
   "finishing_order": [
     {
       "position": 1,
-      "driver_id": "drv_17",
-      "name": "David Gravel",
-      "car_number": "2",
-      "laps_led": 24,
-      "fastest_lap_ms": 13842
-    },
-    {
-      "position": 2,
-      "driver_id": "drv_9",
-      "name": "Donny Schatz",
-      "car_number": "15",
-      "laps_led": 1,
-      "fastest_lap_ms": 13891
+      "driver_id": "drv_18",
+      "name": "Jonathan Davenport",
+      "car_number": "49",
+      "laps_led": 28,
+      "fastest_lap_ms": 14021,
+      "starting_position": 2
     }
   ],
-  "total_laps": 30,
-  "caution_count": 2,
-  "track_condition_score_at_start": 58.1,
-  "track_condition_score_at_finish": 34.7
-}
-```
-
-### By driver
-
-```bash
-GET /drivers/{driver_id}/results?division=sprint_wing&since=2023-01-01
-```
-
-Returns all results for a driver within the specified filters. Supports pagination.
-
-### By track
-
-```bash
-GET /tracks/{track_id}/results?year=2023
-```
-
-Returns all events held at a specific track for the given year.
-
----
-
-## Track condition history
-
-Retrieve how conditions evolved over the course of a race night:
-
-```bash
-GET /tracks/{track_id}/conditions?date=2024-08-10
-```
-
-```json
-{
-  "track_id": "trk_eldora",
-  "date": "2024-08-10",
-  "readings": [
-    { "time": "17:00", "condition_score": 78.2, "source": "weather_station" },
-    { "time": "18:30", "condition_score": 71.4, "source": "weather_station" },
-    { "time": "20:00", "condition_score": 58.9, "source": "weather_station" },
-    { "time": "21:30", "condition_score": 41.3, "source": "weather_station" },
-    { "time": "23:00", "condition_score": 28.7, "source": "decay_model" }
-  ]
+  "caution_count": 3,
+  "track_condition_score_at_start": 71.2,
+  "track_condition_score_at_finish": 38.4,
+  "field_size": 34
 }
 ```
 
 ---
 
-## Prediction archives
+## Historical odds archive
 
-Compare past predictions against actual results to evaluate model accuracy or build your own calibration layer:
+For events where Dirt IQ generated lines, the odds archive is available:
 
 ```bash
-GET /predictions?event_id=evt_2023_knoxville_nationals&status=completed
+GET /odds?event_id=evt_2023_eldora_dream&include_history=true
 ```
 
-Each archived prediction includes the original driver rankings and probabilities, plus the actual result — useful for backtesting strategies on top of Dirt IQ data.
+Response includes opening lines, each recalculation checkpoint, and the final pre-feature lines — useful for measuring closing line value and calibrating your own margin decisions.
+
+---
+
+## Driver career records
+
+Pull a driver's full results history in the Dirt IQ database:
+
+```bash
+GET /drivers/drv_18/results?series=lucas_oil_late_models
+GET /drivers/drv_18/results?track_id=trk_eldora
+GET /drivers/drv_18/results?since=2022-01-01&condition_band=slick
+```
+
+Filtering by `condition_band` (heavy, tacky, slick) is particularly useful for building your own surface-split analysis.
 
 ---
 
 ## Bulk data export
 
-For large-scale analysis, use the bulk export endpoint:
+For large-scale backtesting or external modeling, request a bulk export:
 
 ```bash
 POST /exports
-Content-Type: application/json
-
 {
   "dataset": "results",
-  "division": "sprint_wing",
-  "track_id": "trk_knoxville",
+  "series": "lucas_oil_late_models",
   "since": "2015-01-01",
-  "until": "2024-01-01",
   "format": "csv"
 }
 ```
 
-Exports are processed asynchronously. A download URL is sent to your registered email and is available for 72 hours. Large exports (>100k rows) are delivered as compressed `.csv.gz` files.
+Available datasets:
 
-### Available datasets for export
-
-| Dataset key | Description |
+| Dataset | Description |
 |---|---|
-| `results` | Race finishing orders with lap times |
+| `results` | Full finishing orders for all events |
+| `odds_history` | Opening and checkpoint odds for all modeled events |
+| `driver_profiles` | Metric snapshots at time of each event |
 | `conditions` | Track condition scores per event |
-| `predictions` | Full prediction archives with actuals |
-| `driver_profiles` | Snapshot of driver metrics at event time |
-| `weather` | Weather station readings by track and date |
+
+Exports are delivered as `.csv.gz` to your registered email within 15 minutes for requests under 500k rows, longer for larger pulls.
 
 ---
 
-## Rate limits for historical queries
+## DIRTRACKR data gaps
 
-| Plan | Historical queries / minute | Bulk exports / day |
-|---|---|---|
-| Starter | 30 | 2 |
-| Pro | 120 | 10 |
-| Enterprise | Unlimited | Unlimited |
+DIRTRACKR coverage is comprehensive for national Lucas Oil events but has known gaps:
 
-<Note>
-  Bulk exports do not count against your per-minute rate limit — they are processed in a separate queue.
-</Note>
+- **Regional outlaw events**: coverage varies by region; community-submitted results may be incomplete
+- **Qualifying / time trial data**: not consistently available before 2018
+- **Lap-by-lap data**: not available in DIRTRACKR; requires direct timing system integration
+
+When Dirt IQ encounters a data gap for a driver (fewer than 3 series starts), their prior is regressed toward the population mean rather than excluded from the model.
