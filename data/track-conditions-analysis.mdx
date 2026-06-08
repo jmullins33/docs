@@ -1,0 +1,265 @@
+---
+title: "Track Conditions Analysis"
+description: "How Dirt IQ overlays track condition scores onto DIRTRACKR race data — enabling condition-split performance views across any stat, driver, or year."
+---
+
+## The problem DIRTRACKR doesn't solve
+
+DIRTRACKR is the gold standard for LOLMDS race results and driver stats. But every stat it surfaces — wins, top 5s, average finish — is a flat aggregate. It doesn't answer the question that actually matters for odds compilation:
+
+> *Does this driver win because they're fast everywhere, or because they dominate heavy conditions and struggle when the track slicks off?*
+
+That distinction changes who you price as the favorite. Dirt IQ backfills a condition score for every race in the DIRTRACKR database and surfaces all stats through a condition-split lens.
+
+---
+
+## DIRTRACKR data structure (2020–2026)
+
+The stats available per driver per year — the base layer that condition splits are applied to:
+
+| Column | Description | Type |
+|---|---|---|
+| `starts` | Feature starts in the season | Integer |
+| `wins` | Feature wins | Integer |
+| `top5` | Top 5 finishes | Integer |
+| `top10` | Top 10 finishes | Integer |
+| `avg_finish` | Average finishing position | Float |
+| `avg_start` | Average starting position | Float |
+| `hard_charger` | Hard charger awards (most positions gained) | Integer |
+| `laps_led` | Total laps led | Integer |
+| `wins_from_p1` | Wins starting from pole | Integer |
+| `wins_from_outside_front_row` | Wins from P2–P4 | Integer |
+| `wins_from_mid_pack` | Wins starting P5–P10 | Integer |
+| `wins_from_rear` | Wins starting P11+ | Integer |
+| `driver_rating` | DIRTRACKR composite driver rating | Float |
+| `dnf_count` | Did-not-finish count | Integer |
+| `earnings` | Reported race earnings (USD) | Integer |
+
+Available years via `GET /drivers/{id}/stats?series=lucas_oil_late_models&year={year}`:
+
+`2020` `2021` `2022` `2023` `2024` `2025` `2026`
+
+---
+
+## How Dirt IQ adds condition scores
+
+For every race in the DIRTRACKR database, Dirt IQ back-calculates a condition score using:
+
+1. **Historical weather station data** — NOAA/NWS archives for the nearest station to each track
+2. **Track-specific decay curves** — empirical drying curves derived from results patterns (more late-race cautions = heavier track)
+3. **Time-in-program estimate** — feature start time derived from race night schedule data
+
+Where weather data is unavailable (primarily events before 2018), the condition score is marked `estimated` with lower confidence. From 2020 onward, coverage is near-complete.
+
+The backfilled condition score is stored against every DIRTRACKR race record in Dirt IQ:
+
+```json
+{
+  "race_id": "lolmds_2023_eldora_dream",
+  "date": "2023-06-09",
+  "track_id": "trk_eldora",
+  "winner": "drv_18",
+  "winner_name": "Jonathan Davenport",
+  "condition_score": 51.4,
+  "condition_band": "surface_tacky",
+  "condition_source": "weather_station",
+  "condition_confidence": 0.91
+}
+```
+
+---
+
+## Condition-split stats
+
+Any DIRTRACKR stat can be queried split by condition band. This is the core feature for building accurate opening lines.
+
+### Single driver, all conditions
+
+```bash
+GET /drivers/drv_42/stats/condition-split?series=lucas_oil_late_models&since=2020
+```
+
+```json
+{
+  "driver_id": "drv_42",
+  "name": "Brandon Overton",
+  "series": "lucas_oil_late_models",
+  "period": "2020–2026",
+  "overall": {
+    "starts": 187,
+    "wins": 44,
+    "win_rate": 0.235,
+    "top5_rate": 0.561,
+    "avg_finish": 4.2
+  },
+  "by_condition": {
+    "surface_heavy": {
+      "starts": 61,
+      "wins": 22,
+      "win_rate": 0.361,
+      "top5_rate": 0.672,
+      "avg_finish": 3.1
+    },
+    "surface_tacky": {
+      "starts": 79,
+      "wins": 17,
+      "win_rate": 0.215,
+      "top5_rate": 0.557,
+      "avg_finish": 4.4
+    },
+    "surface_slick": {
+      "starts": 47,
+      "wins": 5,
+      "win_rate": 0.106,
+      "top5_rate": 0.404,
+      "avg_finish": 6.1
+    }
+  }
+}
+```
+
+**Reading this:** Overton is dramatically better on heavy tracks (36% win rate) than slick (11%). When the model projects a slick feature, his opening line should be significantly longer than his career average implies.
+
+---
+
+## Year-over-year condition splits
+
+Track conditions shift meaningfully season to season depending on weather patterns and track prep philosophy. Year-over-year comparison shows whether a driver's condition preference is stable or evolving.
+
+```bash
+GET /drivers/drv_42/stats/condition-split?series=lucas_oil_late_models&year=2023,2024,2025
+```
+
+Returns a condition split for each requested year side by side — useful for spotting whether a driver has improved on their weak surface or remains one-dimensional.
+
+---
+
+## Multi-driver comparison by condition
+
+Compare the full field on a specific surface type:
+
+```bash
+GET /drivers/compare/condition?
+  series=lucas_oil_late_models&
+  condition=surface_slick&
+  since=2021&
+  min_starts=15&
+  sort=win_rate
+```
+
+```json
+{
+  "condition": "surface_slick",
+  "period": "2021–2026",
+  "min_starts_filter": 15,
+  "drivers": [
+    {
+      "rank": 1,
+      "driver_id": "drv_9",
+      "name": "Ricky Thornton Jr.",
+      "starts": 38,
+      "wins": 11,
+      "win_rate": 0.289,
+      "avg_finish": 3.8
+    },
+    {
+      "rank": 2,
+      "driver_id": "drv_2",
+      "name": "Jonathan Davenport",
+      "starts": 52,
+      "wins": 14,
+      "win_rate": 0.269,
+      "avg_finish": 3.4
+    },
+    {
+      "rank": 3,
+      "driver_id": "drv_11",
+      "name": "Chris Madden",
+      "starts": 44,
+      "wins": 10,
+      "win_rate": 0.227,
+      "avg_finish": 4.1
+    }
+  ]
+}
+```
+
+This response feeds directly into the odds model — on race nights where the model projects a slick surface, these are the drivers whose probabilities get boosted relative to their flat career average.
+
+---
+
+## Condition score ranges by track
+
+Different tracks have different typical condition profiles at feature time. Knowing the expected condition range helps calibrate pre-event opening lines.
+
+```bash
+GET /tracks/{track_id}/condition-profile?series=lucas_oil_late_models&since=2020
+```
+
+```json
+{
+  "track_id": "trk_eldora",
+  "track_name": "Eldora Speedway",
+  "events_sampled": 14,
+  "condition_profile": {
+    "median_feature_score": 44.2,
+    "p25_score": 33.1,
+    "p75_score": 58.7,
+    "most_common_band": "surface_tacky",
+    "heavy_pct": 0.21,
+    "tacky_pct": 0.57,
+    "slick_pct": 0.22
+  }
+}
+```
+
+The condition profile is shown in the dashboard when you navigate to a track — it sets the prior expectation before the day-of weather data comes in.
+
+---
+
+## Track condition history viewer
+
+The dashboard includes a **Track Conditions** view for every venue in the series:
+
+```
+Filters:
+  Year: [ 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | All ]
+  Event type: [ All | Major ($50k+) | Premier | Standard ]
+  Surface: [ All | Heavy | Tacky | Slick ]
+
+Output columns per event:
+  Date | Event name | Winner | Condition score | Band | Source | Confidence
+```
+
+Each row links to the full race card (DIRTRACKR results) and the condition log (weather station readings for that night).
+
+---
+
+## Using condition data in odds requests
+
+When you generate odds, the model automatically uses the projected condition score for the event. For historical analysis or explicit overrides:
+
+```json
+{
+  "event_id": "evt_2026_eldora_dream",
+  "market": "feature_winner",
+  "bucket_context": {
+    "surface_condition": "surface_slick"
+  }
+}
+```
+
+Passing `surface_slick` in `bucket_context` tells the model to weight drivers' slick-surface profiles when calculating probabilities — overriding the live forecast if you have a strong prior on track prep.
+
+---
+
+## Key condition signals for the trading desk
+
+When reviewing opening lines, flag these situations for manual review:
+
+| Signal | What it means | Action |
+|---|---|---|
+| Condition projection = heavy, but top-3 favorites are slick specialists | Model may be overweighting career stats over conditions | Check heavy-track leaderboard; consider lengthening favorites |
+| Condition confidence < 0.6 | Weather data is from a distant station or forecast | Widen margins; apply extra overround on the event |
+| Condition score swings >15 pts between opening line and feature time | Surface changed materially during the program | Trigger manual line review; check `odds.updated` webhook |
+| New track (< 3 events in DB) | No condition profile established | Use the regional track-type median as the prior |

@@ -40,7 +40,8 @@
           {
             "group": "Data Reference",
             "pages": [
-              "data/lolmds-reference"
+              "data/lolmds-reference",
+              "data/track-conditions-analysis"
             ]
           }
         ]
