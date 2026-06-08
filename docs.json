@@ -36,6 +36,12 @@
               "analytics/historical-data",
               "analytics/real-time-insights"
             ]
+          },
+          {
+            "group": "Data Reference",
+            "pages": [
+              "data/lolmds-reference"
+            ]
           }
         ]
       },
