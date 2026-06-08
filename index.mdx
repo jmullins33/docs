@@ -1,97 +1,60 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Dirt IQ"
+description: "Predictive analytics for dirt track racing — harness historical data, real-time conditions, and machine learning to gain the edge on and off the track."
 ---
 
-## Setting up
+## What is Dirt IQ?
 
-Get your documentation site up and running in minutes.
+Dirt IQ is a predictive analytics platform built specifically for dirt track racing. Whether you're a team owner making setup decisions, a promoter optimizing race cards, or a fan looking for data-driven picks, Dirt IQ puts the power of machine learning and real-time data at your fingertips.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Race Predictions" icon="flag-checkered" href="/analytics/race-predictions">
+    Win probability, podium likelihood, and head-to-head matchup scores for every event.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Track Analysis" icon="road" href="/concepts/track-conditions">
+    Live track condition scoring based on moisture, groove width, temperature, and prep data.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Driver Metrics" icon="gauge-high" href="/concepts/driver-metrics">
+    Deep performance profiles including surface-specific stats, recent form, and fatigue indices.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Weather Integration" icon="cloud-sun-rain" href="/analytics/weather-integration">
+    Hyperlocal weather feeds fused directly into prediction models before the green flag drops.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## How it works
 
-Everything you need to create world-class documentation.
+Dirt IQ ingests data from multiple sources — historical race results, live timing feeds, weather stations, and track prep logs — and runs them through a suite of purpose-built ML models. Outputs are available as a REST API, a live dashboard, and webhook events that fire as race conditions change throughout the night.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+<Steps>
+  <Step title="Connect your data sources">
+    Link timing systems, weather stations, and your race management software via our integrations catalog or the REST API.
+  </Step>
+  <Step title="Generate predictions">
+    Call `/predictions` with an event ID and division to receive ranked win probabilities, confidence scores, and key contributing factors for each driver.
+  </Step>
+  <Step title="Act on real-time updates">
+    Subscribe to webhook events and receive updated predictions automatically as track conditions evolve from hot laps through the feature event.
+  </Step>
+</Steps>
 
-## Need inspiration?
+## Supported series and surfaces
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
+| Division | Surface Types | Status |
+|---|---|---|
+| Sprint Cars (Winged) | Clay, Slick, Cushion | Full model support |
+| Sprint Cars (Non-Wing) | Clay, Slick | Full model support |
+| Late Models | Clay, Slick, Cushion | Full model support |
+| Modifieds | Clay, Slick | Full model support |
+| Street Stocks / Pure Stocks | Clay | Beta |
+| Micro Sprints | Clay, Slick | Beta |
+
+<Note>
+  Don't see your division? We're actively expanding coverage. [Contact us](mailto:support@dirtiq.com) to discuss early access for your series.
+</Note>
+
+## Ready to start?
+
+<Card title="Quickstart guide" icon="rocket" href="/quickstart" horizontal>
+  Get your first race prediction in under five minutes.
 </Card>

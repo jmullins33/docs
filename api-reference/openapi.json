@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "OpenAPI Plant Store",
-    "description": "A sample API that uses a plant store as an example to demonstrate features in the OpenAPI specification",
+    "title": "Dirt IQ API",
+    "description": "Predictive analytics API for dirt track racing. Generate win probabilities, track condition scores, driver metrics, and real-time race updates.",
     "license": {
       "name": "MIT"
     },
@@ -10,7 +10,7 @@
   },
   "servers": [
     {
-      "url": "http://sandbox.mintlify.com"
+      "url": "https://api.dirtiq.com/v1"
     }
   ],
   "security": [
@@ -19,36 +19,98 @@
     }
   ],
   "paths": {
-    "/plants": {
+    "/predictions": {
       "get": {
-        "description": "Returns all plants from the system that the user has access to",
+        "summary": "List predictions",
+        "description": "Returns a list of race predictions. Filter by event, track, division, or date.",
+        "operationId": "listPredictions",
         "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "description": "Filter by race event ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "track_id",
+            "in": "query",
+            "description": "Filter by track ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "division",
+            "in": "query",
+            "description": "Filter by racing division (sprint_wing, sprint_nonwing, late_model, modified, street_stock, micro_sprint)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "Filter by event date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
           {
             "name": "limit",
             "in": "query",
-            "description": "The maximum number of results to return",
+            "description": "Maximum number of results to return",
             "schema": {
               "type": "integer",
-              "format": "int32"
+              "format": "int32",
+              "default": 20
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "description": "Cursor for pagination — pass the next_cursor value from the previous response",
+            "schema": {
+              "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Plant response",
+            "description": "A list of race predictions",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Plant"
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Prediction"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "Unexpected error",
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid or missing API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -60,31 +122,43 @@
         }
       },
       "post": {
-        "description": "Creates a new plant in the store",
+        "summary": "Create prediction",
+        "description": "Generates a new race prediction for the specified event and division. Returns ranked win probabilities and confidence scores for each driver in the entry list.",
+        "operationId": "createPrediction",
         "requestBody": {
-          "description": "Plant to add to the store",
+          "description": "Parameters for the prediction request",
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NewPlant"
+                "$ref": "#/components/schemas/NewPrediction"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
-          "200": {
-            "description": "plant response",
+          "201": {
+            "description": "Prediction successfully created",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Plant"
+                  "$ref": "#/components/schemas/Prediction"
                 }
               }
             }
           },
           "400": {
-            "description": "unexpected error",
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid or missing API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -96,28 +170,38 @@
         }
       }
     },
-    "/plants/{id}": {
+    "/predictions/{id}": {
       "delete": {
-        "description": "Deletes a single plant based on the ID supplied",
+        "summary": "Delete prediction",
+        "description": "Permanently removes a prediction record by its ID.",
+        "operationId": "deletePrediction",
         "parameters": [
           {
             "name": "id",
             "in": "path",
-            "description": "ID of plant to delete",
             "required": true,
+            "description": "The unique prediction ID",
             "schema": {
-              "type": "integer",
-              "format": "int64"
+              "type": "string"
             }
           }
         ],
         "responses": {
           "204": {
-            "description": "Plant deleted",
-            "content": {}
+            "description": "Prediction deleted successfully"
           },
-          "400": {
-            "description": "unexpected error",
+          "401": {
+            "description": "Unauthorized — invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prediction not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -131,22 +215,23 @@
     }
   },
   "webhooks": {
-    "/plant/webhook": {
+    "/webhooks/race-update": {
       "post": {
-        "description": "Information about a new plant added to the store",
+        "summary": "Race condition update",
+        "description": "Sent when track conditions change significantly during a race night or when a prediction is recalculated, triggering updated driver probabilities.",
         "requestBody": {
-          "description": "Plant added to the store",
+          "description": "Updated prediction payload triggered by a race condition change or lap data update",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NewPlant"
+                "$ref": "#/components/schemas/WebhookEvent"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Return a 200 status to indicate that the data was received successfully"
+            "description": "Return 200 to acknowledge receipt of the webhook. Any other status triggers a retry."
           }
         }
       }
@@ -154,55 +239,182 @@
   },
   "components": {
     "schemas": {
-      "Plant": {
-        "required": [
-          "name"
-        ],
+      "Prediction": {
         "type": "object",
+        "required": ["id", "event_id", "division", "created_at", "drivers"],
         "properties": {
-          "name": {
-            "description": "The name of the plant",
-            "type": "string"
+          "id": {
+            "type": "string",
+            "description": "Unique prediction identifier"
           },
-          "tag": {
-            "description": "Tag to specify the type",
-            "type": "string"
+          "event_id": {
+            "type": "string",
+            "description": "The race event this prediction applies to"
+          },
+          "track_id": {
+            "type": "string",
+            "description": "The track hosting the event"
+          },
+          "division": {
+            "type": "string",
+            "description": "Racing division (sprint_wing, sprint_nonwing, late_model, modified, street_stock, micro_sprint)"
+          },
+          "track_condition_score": {
+            "type": "number",
+            "format": "float",
+            "description": "Composite track condition score from 0 (dry/slick) to 100 (heavy moisture)"
+          },
+          "confidence": {
+            "type": "number",
+            "format": "float",
+            "description": "Overall model confidence score (0–1). Higher is more reliable."
+          },
+          "cancellation_risk": {
+            "type": "number",
+            "format": "float",
+            "description": "Probability (0–1) of rain cancellation. Only included for events within 12 hours."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when the prediction was last calculated"
+          },
+          "drivers": {
+            "type": "array",
+            "description": "Per-driver predictions ranked by win probability (highest first)",
+            "items": {
+              "$ref": "#/components/schemas/DriverPrediction"
+            }
           }
         }
       },
-      "NewPlant": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/Plant"
+      "DriverPrediction": {
+        "type": "object",
+        "required": ["driver_id", "name", "win_probability", "podium_probability"],
+        "properties": {
+          "driver_id": {
+            "type": "string",
+            "description": "Unique driver identifier"
           },
-          {
-            "required": [
-              "id"
-            ],
-            "type": "object",
-            "properties": {
-              "id": {
-                "description": "Identification number of the plant",
-                "type": "integer",
-                "format": "int64"
-              }
-            }
+          "name": {
+            "type": "string",
+            "description": "Driver full name"
+          },
+          "car_number": {
+            "type": "string",
+            "description": "Car number for the event"
+          },
+          "win_probability": {
+            "type": "number",
+            "format": "float",
+            "description": "Probability (0–1) of winning the feature event"
+          },
+          "podium_probability": {
+            "type": "number",
+            "format": "float",
+            "description": "Probability (0–1) of finishing top 3"
+          },
+          "top5_probability": {
+            "type": "number",
+            "format": "float",
+            "description": "Probability (0–1) of finishing top 5"
+          },
+          "projected_finish": {
+            "type": "integer",
+            "description": "Model's most likely finishing position"
+          },
+          "form_score": {
+            "type": "number",
+            "format": "float",
+            "description": "Rolling 30-day performance rating (0–100)"
+          },
+          "track_affinity": {
+            "type": "number",
+            "format": "float",
+            "description": "Historical performance score at this specific track (0–100)"
           }
-        ]
+        }
+      },
+      "NewPrediction": {
+        "type": "object",
+        "required": ["event_id", "division"],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "The race event ID to generate a prediction for"
+          },
+          "division": {
+            "type": "string",
+            "description": "Racing division: sprint_wing, sprint_nonwing, late_model, modified, street_stock, micro_sprint"
+          },
+          "track_condition_override": {
+            "type": "number",
+            "format": "float",
+            "description": "Optional manual override for track condition score (0–100). Replaces the computed score for this request only."
+          },
+          "weather_station_id": {
+            "type": "string",
+            "description": "Optional weather station ID override. Uses the track's default station if omitted."
+          },
+          "include_heat_race_data": {
+            "type": "boolean",
+            "description": "Whether to factor in heat race results when available. Defaults to true.",
+            "default": true
+          }
+        }
+      },
+      "WebhookEvent": {
+        "type": "object",
+        "required": ["id", "type", "created_at"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique webhook event ID"
+          },
+          "type": {
+            "type": "string",
+            "description": "Event type: prediction.updated, track_conditions.changed, race.caution, race.complete"
+          },
+          "trigger": {
+            "type": "string",
+            "description": "What triggered the event: lap_data, weather_update, heat_results, manual"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when the event was fired"
+          },
+          "prediction": {
+            "$ref": "#/components/schemas/Prediction",
+            "description": "The updated prediction object. Present when type is prediction.updated."
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "has_more": {
+            "type": "boolean",
+            "description": "Whether additional results exist beyond this page"
+          },
+          "next_cursor": {
+            "type": "string",
+            "description": "Pass as the after parameter in your next request to retrieve the next page"
+          }
+        }
       },
       "Error": {
-        "required": [
-          "error",
-          "message"
-        ],
         "type": "object",
+        "required": ["error", "message"],
         "properties": {
           "error": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "description": "HTTP status code"
           },
           "message": {
-            "type": "string"
+            "type": "string",
+            "description": "Human-readable error message"
           }
         }
       }

@@ -1,0 +1,110 @@
+---
+title: "Real-Time Insights"
+description: "Live race analytics — lap-by-lap updates, condition changes, and in-race prediction refreshes."
+---
+
+## Overview
+
+Dirt IQ's real-time layer processes live timing feeds and sensor data to update predictions and surface actionable insights as a race night unfolds. Real-time features are available on the Pro and Enterprise plans.
+
+---
+
+## Connecting a live timing feed
+
+Dirt IQ integrates with the most widely used dirt track timing systems:
+
+| System | Integration type | Setup |
+|---|---|---|
+| MyLaps Orbits | Direct API push | Register your transponder key in the dashboard |
+| RACEceivers RaceResult | Webhook push | Point the RaceResult output URL to your Dirt IQ endpoint |
+| AMB/MyLaps X2 | Direct API push | Register your X2 API credentials |
+| Race Monitor | Polling pull | Enter your Race Monitor event URL |
+| Custom / CSV | File upload | POST lap data to `/events/{id}/laps` |
+
+Once connected, Dirt IQ begins processing lap data within 2 seconds of each crossing.
+
+---
+
+## What updates in real time
+
+### Prediction updates
+
+After each lap batch (typically every 2–5 laps during the feature), Dirt IQ recalculates win probabilities factoring in:
+
+- **Current position and laps remaining** — a driver running P2 with 5 laps to go has a materially different probability than the same driver in P2 with 20 laps to go
+- **Gap to leader and gap ahead** — tight gaps = more likely position changes
+- **Observed lap time trend** — driver speeding up or fading relative to competition
+- **Track condition score** — updated from weather station at the same interval
+
+Updated predictions fire a `prediction.updated` webhook event with `trigger: "lap_data"`.
+
+### Track condition updates
+
+The condition score is recalculated every 5 minutes using the latest weather station data. Large swings (±10 points or more) fire a `track_conditions.changed` webhook event.
+
+### Caution and incident alerts
+
+When caution laps are detected (stationary lap time spike across multiple cars), Dirt IQ fires a `race.caution` event with:
+
+- Estimated lap of caution
+- Cars involved (if timing data is granular enough)
+- Restart order projection
+
+---
+
+## WebSocket feed (beta)
+
+For applications that need sub-second updates without managing webhooks, Dirt IQ offers a WebSocket feed:
+
+```javascript
+const ws = new WebSocket(
+  "wss://stream.dirtiq.com/v1/events/evt_2024_eldora_4crown",
+  { headers: { "Authorization": "Bearer YOUR_API_KEY" } }
+);
+
+ws.onmessage = (event) => {
+  const update = JSON.parse(event.data);
+  console.log(update.type, update.payload);
+};
+```
+
+Message types:
+
+| Type | Payload | Frequency |
+|---|---|---|
+| `lap_recorded` | Driver, lap time, position | Per crossing |
+| `prediction_updated` | Full prediction object | Every 2–5 laps |
+| `condition_updated` | New condition score + components | Every 5 min |
+| `caution` | Lap number, involved cars | As detected |
+| `race_status` | Green / yellow / red / complete | On change |
+
+<Note>
+  The WebSocket feed is in beta. Message format may change before GA. Pin to a specific API version header to avoid breaking changes.
+</Note>
+
+---
+
+## In-race overlays
+
+The Dirt IQ dashboard includes an embeddable overlay designed for trackside screens and broadcast use:
+
+- Live win-probability bar chart, updating each lap
+- Driver trending up/down indicators (moving faster or slower than baseline)
+- Track condition score with visual surface-state indicator
+- Head-to-head matchup probability for any two drivers
+
+Embed code is available from **Dashboard → Events → [Event] → Overlay**.
+
+---
+
+## Latency and reliability
+
+| Metric | Target |
+|---|---|
+| Timing feed ingestion | < 2 seconds from crossing |
+| Prediction recalculation | < 500ms after lap batch |
+| Webhook delivery | < 1 second (p95) |
+| WebSocket message latency | < 200ms (p95) |
+| Uptime SLA (Pro / Enterprise) | 99.5% / 99.9% |
+
+If a timing connection drops, Dirt IQ continues updating condition scores and weather-driven predictions. Lap-based updates resume automatically when the feed reconnects — no manual intervention required.

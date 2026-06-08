@@ -1,0 +1,109 @@
+---
+title: "Predictive Models"
+description: "How Dirt IQ's machine learning models generate race outcome predictions."
+---
+
+## Overview
+
+Dirt IQ uses an ensemble of purpose-built models trained on over a decade of dirt track racing data. Each model targets a different prediction task — win probability, lap time projection, track condition evolution — and their outputs are combined via a meta-model to produce the final ranked predictions you see in the API response.
+
+---
+
+## Model architecture
+
+### 1. Driver performance model
+
+Predicts individual driver output based on recent form and career history. Inputs include:
+
+- **Rolling performance score** — weighted average of finish positions over the last 30 days, decayed by recency
+- **Surface-specific history** — separate statistics for clay, slick, and cushion conditions
+- **Division-level calibration** — accounts for differences in field depth across series
+- **Fatigue index** — penalizes drivers who have run high mileage in the previous 7 days
+
+### 2. Track affinity model
+
+Measures how well a driver historically performs at a specific track relative to the rest of the field:
+
+- Baseline win rate and average finish at the track
+- Condition-specific performance (driver may excel on slick but struggle on cushion at a given track)
+- Qualifying and hot lap performance at the same venue
+
+### 3. Track condition model
+
+Forecasts how track conditions will evolve throughout the race night. See [Track Conditions](/concepts/track-conditions) for the full scoring methodology.
+
+### 4. Weather impact model
+
+Adjusts predictions based on real-time and forecast weather data. See [Weather Integration](/analytics/weather-integration) for details.
+
+### 5. Meta-model (ensemble)
+
+The four models above feed into a gradient-boosted meta-model that:
+
+- Weights each model's signal based on how informative it is for the specific track and division
+- Produces the final `win_probability`, `podium_probability`, and `top5_probability` values
+- Outputs a `confidence` score representing the certainty of the overall prediction
+
+---
+
+## How predictions update during a race night
+
+Predictions are not static. Dirt IQ recalculates throughout the event lifecycle:
+
+```
+Entry list published
+        ↓
+Initial prediction generated (driver + track affinity + weather)
+        ↓
+Hot laps / time trials complete
+        ↓
+Prediction updated with qualifying data + observed track conditions
+        ↓
+Heat races complete
+        ↓
+Prediction updated with heat race results (starting position, observed speed)
+        ↓
+Feature event start
+        ↓
+Real-time lap-by-lap updates (if live timing feed is connected)
+```
+
+Each recalculation fires a `prediction.updated` webhook event if you have a subscription registered.
+
+---
+
+## Confidence scores
+
+The `confidence` field (0–1) reflects how much signal the models have for a given event. Confidence is higher when:
+
+- The entry list is complete and all drivers have sufficient history
+- Weather data is available from a local station
+- Track prep logs have been submitted
+- Heat race results are available
+
+Confidence is lower when:
+
+- The entry list contains many drivers with limited history at this track
+- Weather data must be interpolated from distant stations
+- The event uses a format the model hasn't seen many examples of
+
+<Tip>
+  When `confidence` is below 0.6, consider supplementing Dirt IQ predictions with domain expertise before making high-stakes decisions.
+</Tip>
+
+---
+
+## Model limitations
+
+| Limitation | Notes |
+|---|---|
+| First-time or rare drivers | Predictions for drivers with fewer than 5 career starts in the division have wider error bars |
+| Unusual formats | Invert races, random draws, or non-standard feature lengths reduce model accuracy |
+| Late DNQs / scratches | The model doesn't know about last-minute scratches until the entry list is updated |
+| New tracks | Tracks added within the last 12 months have less historical data and lower confidence scores |
+
+---
+
+## Feedback and corrections
+
+If you observe a systematic prediction error — for example, the model consistently undervalues a driver on slick tracks — you can submit feedback via the dashboard. Feedback is reviewed quarterly and used to retrain models.

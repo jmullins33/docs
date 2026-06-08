@@ -1,0 +1,124 @@
+---
+title: "Driver Metrics"
+description: "The performance metrics Dirt IQ uses to profile every driver in the database."
+---
+
+## Overview
+
+Driver performance metrics are the foundation of every prediction. Dirt IQ maintains a continuously updated profile for each driver that goes well beyond raw win counts — capturing surface preferences, form trajectories, track affinities, and more.
+
+All metrics are available via the `/drivers/{id}` endpoint and are embedded in every prediction response.
+
+---
+
+## Core metrics
+
+### Form score
+
+A rolling performance score from **0 to 100** representing how well a driver has been performing over the past 30 days relative to their career baseline.
+
+- Calculated from finish positions weighted by field depth (winning a 30-car regional show counts more than winning a 12-car show)
+- Decayed by recency — last weekend counts more than three weekends ago
+- Normalized to 100 within the division so scores are comparable across drivers
+
+```
+form_score: 91.2  // high — driver is in exceptional recent form
+form_score: 54.0  // average — consistent with career baseline
+form_score: 22.7  // low — below-average recent run of results
+```
+
+### Track affinity score
+
+A score from **0 to 100** measuring how well a driver performs at a specific track relative to the rest of the field. High affinity means the driver consistently outperforms expectations at that venue.
+
+- Tracks driver results at this specific venue over their career
+- Weighted for recency — results from the past two seasons count double
+- Accounts for field depth at each event
+
+### Surface performance breakdown
+
+Every driver's stats are split by surface type:
+
+| Surface | Win Rate | Avg Finish | Laps Led % |
+|---|---|---|---|
+| Heavy clay (score 61–100) | — | — | — |
+| Tacky clay (score 41–60) | — | — | — |
+| Slick clay (score 0–40) | — | — | — |
+
+This breakdown is the key input to the track condition model — a driver who dominates tacky conditions but struggles on a slick gets a lower win probability when the model projects a dry, one-groove feature.
+
+---
+
+## Extended metrics
+
+### Fatigue index
+
+Measures physical workload over the past 7 days:
+
+- Counts starts, travel distance, and race miles in the window
+- High fatigue (index > 80) mildly penalizes projected performance
+- Most relevant for drivers on grueling summer travel schedules
+
+### Starting position impact
+
+Some drivers are significantly better from the front; others are exceptional at threading through traffic:
+
+- **Front-row advantage**: how much better a driver performs starting P1–P4 vs. P5+
+- **Passing grade**: historical success rate advancing through the field from mid-pack and back
+
+### Heat race calibration
+
+When heat race results are available (and `include_heat_race_data: true` is set), the model factors in:
+
+- Heat race finish vs. expected finish (did the driver over- or under-perform?)
+- Observed lap times relative to competitors (timing feed required)
+- Car damage or mechanical issues flagged in the timing data
+
+---
+
+## Accessing driver data
+
+```bash
+# Get a driver's full profile
+GET /drivers/drv_9
+
+# Search drivers by name
+GET /drivers?search=schatz
+
+# Get a driver's history at a specific track
+GET /drivers/drv_9/history?track_id=trk_knoxville
+```
+
+### Example response
+
+```json
+{
+  "driver_id": "drv_9",
+  "name": "Donny Schatz",
+  "hometown": "Fargo, ND",
+  "career_starts": 3241,
+  "career_wins": 631,
+  "career_win_rate": 0.195,
+  "form_score": 88.3,
+  "surface_stats": {
+    "heavy": { "win_rate": 0.21, "avg_finish": 3.1 },
+    "tacky": { "win_rate": 0.19, "avg_finish": 3.4 },
+    "slick": { "win_rate": 0.17, "avg_finish": 3.8 }
+  },
+  "fatigue_index": 42.0,
+  "last_updated": "2024-08-10T22:14:00Z"
+}
+```
+
+---
+
+## Driver database coverage
+
+Dirt IQ maintains profiles for:
+
+- **World of Outlaws STS** — full roster, all seasons since 2010
+- **USAC National** — full roster, all seasons since 2012
+- **iRacing Dirt** — 2018 to present
+- **Regional series** — varies by series; contact us to add coverage
+
+Drivers are matched across series by name and hometown — aliases and maiden names are accounted for. If a driver is missing or has a duplicate, report it via the dashboard.

@@ -1,0 +1,100 @@
+---
+title: "Track Conditions"
+description: "How Dirt IQ scores and models track conditions, and why it matters for race predictions."
+---
+
+## Why track conditions matter
+
+Dirt tracks are not static surfaces. A track that starts heavy and tacky at hot laps can transition to a slick, one-groove speedway by the feature event — completely inverting who the favorites are. A driver who dominates heavy, cushion-heavy conditions may struggle when the bottom seals up, and vice versa.
+
+Dirt IQ tracks this evolution continuously and incorporates it into every prediction update.
+
+---
+
+## The track condition score
+
+Dirt IQ distills surface state into a single **track condition score** ranging from **0 to 100**:
+
+| Score Range | Surface Description | Typical Racing Characteristics |
+|---|---|---|
+| 0 – 20 | Dry / Slick | Single-groove racing; momentum and smooth driving rewarded |
+| 21 – 40 | Transitional slick | Second groove beginning to form; power and braking points matter more |
+| 41 – 60 | Tacky / Ideal | Multiple grooves racing; passing opportunities throughout the field |
+| 61 – 80 | Heavy / Moisture-rich | Cushion forms on the outside; aggressive, horsepower-dependent driving rewarded |
+| 81 – 100 | Wet / Extreme moisture | Usually pre-race only; feature rarely run in this range |
+
+The score is a composite of four sub-components:
+
+### Sub-components
+
+<AccordionGroup>
+  <Accordion icon="droplet" title="Moisture index (40% weight)">
+    Derived from weather station readings, soil probe sensors (where available), and historical moisture retention curves for that specific track's soil composition. High moisture = high score.
+  </Accordion>
+  <Accordion icon="thermometer" title="Temperature differential (20% weight)">
+    The delta between track surface temperature and ambient air temperature. A cold surface retains moisture longer; a hot surface accelerates drying. Measured via satellite thermal data or on-site sensors.
+  </Accordion>
+  <Accordion icon="wind" title="Wind and humidity (20% weight)">
+    High wind accelerates evaporation and drying. Humidity slows it. The model uses a modified Penman evaporation equation tuned for packed clay.
+  </Accordion>
+  <Accordion icon="clock" title="Time-in-program decay (20% weight)">
+    Even with no weather changes, track conditions dry down as the event progresses — more rubber is laid, the surface gets worked. The decay curve is calibrated per track based on historical prep logs and lap count data.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Manual overrides
+
+If your track has on-site sensors or your crew chief has a strong read on the surface, you can override the computed score when calling `/predictions`:
+
+```json
+{
+  "event_id": "evt_2024_eldora_4crown",
+  "division": "sprint_wing",
+  "track_condition_override": 71.0
+}
+```
+
+Overrides replace the model's computed score entirely for that prediction request. They do not affect future auto-calculated scores.
+
+---
+
+## Groove width and position
+
+In addition to the composite score, Dirt IQ models **groove position** for select tracks with historical groove-mapping data:
+
+- **Bottom groove** — tight, low line; favors smooth, mechanical drivers
+- **Middle groove** — transitional line most common during tacky conditions
+- **Top / cushion groove** — outside edge; favors horsepower and tire scrub during heavy conditions
+
+Groove width data feeds into the driver metrics model to weight each driver's groove preference against current conditions.
+
+---
+
+## Track condition history
+
+You can retrieve a track's historical condition scores via the API:
+
+```bash
+GET /tracks/{track_id}/conditions?date=2024-08-10
+```
+
+This returns an hour-by-hour condition log for the specified date, useful for:
+
+- Post-race analysis
+- Training custom models on top of Dirt IQ data
+- Comparing predicted vs. actual condition evolution
+
+---
+
+## Adding your own track
+
+Tracks not yet in the Dirt IQ database can be added by submitting:
+
+1. Track name, location, and surface type
+2. Configuration (oval, D-shaped, flat, banked — radius and banking angle)
+3. Soil composition (clay type)
+4. Historical results data (CSV export from your timing system)
+
+Contact [support@dirtiq.com](mailto:support@dirtiq.com) for the onboarding form.
