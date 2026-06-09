@@ -1,0 +1,105 @@
+---
+title: Line Movement
+description: What triggers real-time odds recalculations and how fast updates reach your trading platform.
+---
+
+# Line Movement
+
+## Triggers for recalculation
+
+| Trigger | Typical odds impact |
+|---|---|
+| Hot laps / qualifying complete | Low–medium; adjusts for observed pace |
+| Heat race result posted | Medium–high; starting position and heat performance are significant signals |
+| Track condition score shifts ±10 points | Medium; affects drivers with pronounced surface splits |
+| Weather alert (precipitation forecast changes) | Low–medium; primarily affects cancellation risk |
+| Scratch / DNS posted | High; probability redistributed across remaining drivers |
+
+---
+
+## Update latency
+
+| Trigger type | Median latency | P95 |
+|---|---|---|
+| Heat race result (DIRTRACKR post) | 45 seconds | 90 seconds |
+| Live timing integration (direct feed) | < 5 seconds | 15 seconds |
+| Weather condition update | 5 minutes | 10 minutes |
+| Manual scratch / operator note | < 10 seconds | 30 seconds |
+
+---
+
+## Update payload
+
+The `odds.updated` webhook fires with a `changes` array showing only what moved:
+
+```json
+{
+  "type": "odds.updated",
+  "trigger": "heat_results",
+  "event_id": "evt_2026_eldora_dream",
+  "timestamp": "2026-06-13T20:14:32Z",
+  "changes": [
+    {
+      "driver_id": "drv_42",
+      "prev_american_odds": -165,
+      "new_american_odds": -200,
+      "prev_implied_probability": 0.21,
+      "new_implied_probability": 0.26,
+      "trigger_reason": "won_heat_dominant"
+    },
+    {
+      "driver_id": "drv_18",
+      "prev_american_odds": -125,
+      "new_american_odds": "+110",
+      "prev_implied_probability": 0.18,
+      "new_implied_probability": 0.12,
+      "trigger_reason": "lost_heat_back_of_pack"
+    }
+  ]
+}
+```
+
+---
+
+## Scratch handling
+
+When a driver scratches, their probability mass is redistributed proportionally:
+
+```json
+{
+  "type": "odds.updated",
+  "trigger": "scratch",
+  "scratched_driver": {
+    "driver_id": "drv_77",
+    "prev_implied_probability": 0.15,
+    "scratch_reason": "mechanical_dns"
+  },
+  "field_adjustment": "probability redistributed to remaining 33 drivers"
+}
+```
+
+---
+
+## Suspension
+
+When the feature event start is detected, Dirt IQ fires `odds.suspended` and stops recalculating:
+
+```json
+{
+  "type": "odds.suspended",
+  "event_id": "evt_2026_eldora_dream",
+  "reason": "feature_start",
+  "timestamp": "2026-06-13T21:02:00Z"
+}
+```
+
+---
+
+## Polling vs. webhooks
+
+| Approach | Best for |
+|---|---|
+| Webhook `odds.updated` | Primary integration for any real-time trading platform |
+| Poll `GET /odds/{event_id}` | Backup, reconciliation, low-frequency operators |
+
+Polling is rate-limited to once per 60 seconds per event on Starter plans. Webhooks are always lower-latency and preferred for race-night operations.

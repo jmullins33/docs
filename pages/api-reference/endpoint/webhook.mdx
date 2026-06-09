@@ -1,0 +1,91 @@
+---
+title: Webhooks
+description: Receive real-time odds updates, sharp alerts, and settlement events.
+---
+
+# Webhooks
+
+## Registering an endpoint
+
+```bash
+POST https://api.dirtiq.com/v1/webhooks
+Authorization: Bearer YOUR_API_KEY
+Content-Type: application/json
+
+{
+  "url": "https://your-platform.com/hooks/dirtiq",
+  "events": ["odds.updated", "odds.suspended", "sharp_alert.triggered", "event.settled"],
+  "series": ["lucas_oil_late_models"]
+}
+```
+
+Up to 10 endpoints per account. Each can subscribe to any subset of event types.
+
+## Event types
+
+| Event | When it fires |
+|---|---|
+| `odds.published` | Entry list complete; opening lines generated |
+| `odds.updated` | Win probabilities recalculated (qualifying, heat results, conditions) |
+| `odds.suspended` | Feature start detected |
+| `event.settled` | Final results posted to DIRTRACKR |
+| `sharp_alert.triggered` | Deviation score exceeds configured threshold |
+
+## Payload schema
+
+```json
+{
+  "id": "whevt_01hx9p4n",
+  "type": "odds.updated",
+  "trigger": "heat_results",
+  "timestamp": "2026-06-13T20:14:32Z",
+  "event_id": "evt_2026_eldora_dream",
+  "odds": {
+    "id": "odds_01hx7k2m",
+    "market": "feature_winner",
+    "line_status": "open",
+    "track_condition_score": 52.1,
+    "confidence": 0.87,
+    "drivers": [...]
+  }
+}
+```
+
+For `sharp_alert.triggered`, the payload includes a `sharp_alert` object instead of `odds`:
+
+```json
+{
+  "type": "sharp_alert.triggered",
+  "sharp_alert": {
+    "driver_id": "drv_77",
+    "alert_level": "medium",
+    "deviation_score": 2.1,
+    "message": "Unusual volume on drv_77 at +350; model implies +750."
+  }
+}
+```
+
+## Signature verification
+
+Every request includes a `Dirt-IQ-Signature` header. Verify it:
+
+```python
+import hmac, hashlib
+
+def verify(payload: bytes, secret: str, header: str) -> bool:
+    expected = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(f"sha256={expected}", header)
+```
+
+## Retries
+
+If your endpoint returns anything other than `2xx`:
+
+| Attempt | Delay |
+|---|---|
+| 1st retry | 30 seconds |
+| 2nd retry | 5 minutes |
+| 3rd retry | 30 minutes |
+| 4th retry | 2 hours |
+
+Undelivered events can be replayed from the dashboard for up to 72 hours.

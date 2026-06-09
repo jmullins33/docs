@@ -1,0 +1,154 @@
+---
+title: LOLMDS Data Reference
+description: Lucas Oil Late Model Dirt Series — full data catalog, bucket definitions, filters, and comparison structure.
+---
+
+import { Note } from '@/components'
+
+# LOLMDS Data Reference
+
+All LOLMDS data in Dirt IQ originates from **DIRTRACKR** and **The Third Turn** wiki, supplemented by official series press releases at [lucasdirt.com](https://lucasdirt.com).
+
+---
+
+## Champions (2005–2025)
+
+| Year | Champion | Titles (career) |
+|---|---|---|
+| 2005 | Earl Pearson Jr. | 1 of 4 |
+| 2006 | Earl Pearson Jr. | 2 of 4 |
+| 2007 | Earl Pearson Jr. | 3 of 4 |
+| 2008 | Earl Pearson Jr. | 4 of 4 |
+| 2009 | Scott Bloomquist | 1 of 3 |
+| 2010 | Scott Bloomquist | 2 of 3 |
+| 2011 | Jimmy Owens | 1 of 4 |
+| 2012 | Jimmy Owens | 2 of 4 |
+| 2013 | Jimmy Owens | 3 of 4 |
+| 2014 | Don O'Neal | 1 of 1 |
+| 2015 | Jonathan Davenport | 1 of 3 |
+| 2016 | Scott Bloomquist | 3 of 3 |
+| 2017 | Josh Richards | 1 of 1 |
+| 2018 | Jonathan Davenport | 2 of 3 |
+| 2019 | Jonathan Davenport | 3 of 3 |
+| 2020 | Jimmy Owens | 4 of 4 |
+| 2021 | Tim McCreadie | 1 of 2 |
+| 2022 | Tim McCreadie | 2 of 2 |
+| 2023 | Hudson O'Neal | 1 of 1 |
+| 2024 | Ricky Thornton Jr. | 1 of 1 |
+| 2025 | Devin Moran | 1 of 1 |
+
+### Multi-title champions
+
+| Driver | Titles | Years |
+|---|---|---|
+| Earl Pearson Jr. | 4 | 2005, 2006, 2007, 2008 |
+| Jimmy Owens | 4 | 2011, 2012, 2013, 2020 |
+| Jonathan Davenport | 3 | 2015, 2018, 2019 |
+| Scott Bloomquist | 3 | 2009, 2010, 2016 |
+| Tim McCreadie | 2 | 2021, 2022 |
+
+---
+
+## All-time win leaders
+
+| Rank | Driver | Career Wins | Championships |
+|---|---|---|---|
+| 1 | Jonathan Davenport | 95+ | 3 |
+| 2 | Scott Bloomquist | 94 | 3 |
+| 3 | Jimmy Owens | 80 | 4 |
+| 4–10 | Brandon Overton, Chris Madden, Ricky Thornton Jr., Mike Marlar, Josh Richards, Don O'Neal, Earl Pearson Jr. | See DIRTRACKR | — |
+
+<Note>
+  Exact career win counts for ranks 4–10 are live in DIRTRACKR. Dirt IQ API returns real-time values via `GET /drivers/{id}`.
+</Note>
+
+---
+
+## Data buckets
+
+### Bucket 1 — Driver tier (career wins)
+
+| Key | Label | Criteria |
+|---|---|---|
+| `tier_elite` | Elite | 50+ career wins |
+| `tier_contender` | Contender | 20–49 wins |
+| `tier_regular` | Regular | 5–19 wins |
+| `tier_occasional` | Occasional | 1–4 wins |
+| `tier_rookie` | Rookie / No win | 0 wins |
+
+### Bucket 2 — Championship era
+
+| Key | Label | Years | Dominant driver(s) |
+|---|---|---|---|
+| `era_founding` | Founding Era | 2005–2008 | Earl Pearson Jr. |
+| `era_bloomquist` | Bloomquist Era | 2009–2010 | Scott Bloomquist |
+| `era_owens` | Owens Era | 2011–2013 | Jimmy Owens |
+| `era_transition` | Transition | 2014–2016 | O'Neal, Davenport, Bloomquist |
+| `era_davenport` | Davenport Era | 2017–2020 | Richards, Davenport, Owens |
+| `era_modern` | Modern Era | 2021–present | McCreadie, O'Neal, Thornton, Moran |
+
+### Bucket 3 — Event tier (purse / prestige)
+
+| Key | Label | Criteria |
+|---|---|---|
+| `event_major` | Major ($50k+) | Feature purse ≥ $50,000 |
+| `event_premier` | Premier ($10k–$49k) | Feature purse $10k–$49k |
+| `event_standard` | Standard | Feature purse < $10k |
+
+### Bucket 4 — Track type
+
+| Key | Label | Criteria |
+|---|---|---|
+| `track_half_mile` | Half-mile | Length ≥ 0.45mi |
+| `track_third_mile` | 3/8-mile | Length 0.3–0.44mi |
+| `track_short` | Short | Length < 0.3mi |
+| `track_high_banked` | High-banked | Banking > 20° |
+| `track_flat` | Flat | Banking ≤ 12° |
+
+### Bucket 5 — Surface condition
+
+| Key | Label | Score range |
+|---|---|---|
+| `surface_heavy` | Heavy | 61–100 |
+| `surface_tacky` | Tacky | 41–60 |
+| `surface_slick` | Slick | 0–40 |
+
+### Bucket 6 — Season performance tier
+
+| Key | Label | Wins in season |
+|---|---|---|
+| `season_dominant` | Dominant | 10+ |
+| `season_strong` | Strong | 5–9 |
+| `season_average` | Average | 2–4 |
+| `season_lean` | Lean | 0–1 |
+
+---
+
+## Comparing buckets
+
+```bash
+GET /compare?bucket_a=era_davenport&bucket_b=era_modern&metric=win_distribution
+```
+
+```json
+{
+  "bucket_a": {
+    "key": "era_davenport",
+    "events": 147,
+    "unique_winners": 18,
+    "dominant_driver_share": 0.31,
+    "upset_rate": 0.22
+  },
+  "bucket_b": {
+    "key": "era_modern",
+    "events": 198,
+    "unique_winners": 31,
+    "dominant_driver_share": 0.21,
+    "upset_rate": 0.29
+  }
+}
+```
+
+Available comparison metrics: `win_distribution`, `avg_field_size`, `avg_implied_prob_leader`, `upset_rate`, `condition_score_avg`, `dominant_driver_share`.
+
+Combine buckets with `+`: `tier_elite+surface_slick` filters Elite drivers in slick-surface events.

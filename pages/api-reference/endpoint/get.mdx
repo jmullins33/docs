@@ -1,0 +1,82 @@
+---
+title: List Odds
+description: Retrieve current odds objects for events in your licensed series.
+---
+
+# List Odds
+
+```
+GET /odds
+```
+
+Returns a paginated list of odds objects. Filter by event, series, market, or status.
+
+## Query parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `event_id` | string | Filter by event ID |
+| `series` | string | e.g. `lucas_oil_late_models` |
+| `market` | string | `feature_winner`, `top_3_finish`, `top_5_finish`, `head_to_head` |
+| `line_status` | string | `open`, `suspended`, or `settled` |
+| `limit` | integer | Results per page (default 20, max 100) |
+| `after` | string | Pagination cursor from previous response |
+
+## Example request
+
+```bash
+curl https://api.dirtiq.com/v1/odds \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -G \
+  -d "series=lucas_oil_late_models" \
+  -d "line_status=open" \
+  -d "limit=5"
+```
+
+## Example response
+
+```json
+{
+  "data": [
+    {
+      "id": "odds_01hx7k2m",
+      "event_id": "evt_2026_eldora_dream",
+      "series": "lucas_oil_late_models",
+      "market": "feature_winner",
+      "line_status": "open",
+      "model_version": "2026-06",
+      "generated_at": "2026-06-12T14:22:00Z",
+      "track_condition_score": 64.1,
+      "confidence": 0.84,
+      "overround": 1.11,
+      "drivers": [
+        {
+          "driver_id": "drv_42",
+          "name": "Brandon Overton",
+          "car_number": "76",
+          "implied_probability": 0.21,
+          "american_odds": -165,
+          "decimal_odds": 1.61,
+          "model_edge": 0.03
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "has_more": true,
+    "next_cursor": "odds_01hx9p4n"
+  }
+}
+```
+
+## Response fields
+
+| Field | Description |
+|---|---|
+| `id` | Unique odds object ID |
+| `line_status` | `open`, `suspended`, or `settled` |
+| `track_condition_score` | 0 (slick) → 100 (heavy moisture) at time of calculation |
+| `confidence` | Model confidence 0–1 |
+| `overround` | Total market book (e.g. 1.11 = 11%) |
+| `implied_probability` | Model probability after overround applied |
+| `model_edge` | Model probability minus market line; positive = underpriced |

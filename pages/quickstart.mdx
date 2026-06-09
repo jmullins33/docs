@@ -1,0 +1,167 @@
+---
+title: Quickstart
+description: Integrate the Dirt IQ odds feed into your trading platform in under an hour.
+---
+
+import { Tabs, Tab } from 'nextra/components'
+import { Warning, Card, CardGroup, Steps, Step } from '@/components'
+
+# Quickstart
+
+## Prerequisites
+
+- A Dirt IQ operator account and API key — contact [sales@dirtiq.com](mailto:sales@dirtiq.com)
+- A licensed series in your contract (e.g. `lucas_oil_late_models`)
+
+---
+
+## Step 1: Get your API key
+
+Log in to the [Dirt IQ dashboard](https://app.dirtiq.com), navigate to **Settings → API Keys**, and create a new key.
+
+<Warning>
+  Keep your API key secret. Never commit it to source control or expose it in client-side code.
+</Warning>
+
+---
+
+## Step 2: Fetch the event list
+
+```bash
+GET https://api.dirtiq.com/v1/events?series=lucas_oil_late_models&status=upcoming
+Authorization: Bearer YOUR_API_KEY
+```
+
+```json
+{
+  "data": [
+    {
+      "event_id": "evt_2026_eldora_dream",
+      "name": "Eldora Dream — Lucas Oil Late Models",
+      "track_id": "trk_eldora",
+      "series": "lucas_oil_late_models",
+      "scheduled_date": "2026-06-13",
+      "entry_list_published": true,
+      "lines_available": true
+    }
+  ]
+}
+```
+
+---
+
+## Step 3: Pull opening lines
+
+Once `lines_available: true`, retrieve the odds object:
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+  <Tab>
+  ```bash
+  curl https://api.dirtiq.com/v1/odds/evt_2026_eldora_dream \
+    -H "Authorization: Bearer YOUR_API_KEY"
+  ```
+  </Tab>
+  <Tab>
+  ```python
+  import requests
+
+  r = requests.get(
+      "https://api.dirtiq.com/v1/odds/evt_2026_eldora_dream",
+      headers={"Authorization": "Bearer YOUR_API_KEY"}
+  )
+  odds = r.json()
+  print(odds["drivers"][0])
+  ```
+  </Tab>
+  <Tab>
+  ```js
+  const res = await fetch("https://api.dirtiq.com/v1/odds/evt_2026_eldora_dream", {
+    headers: { "Authorization": "Bearer YOUR_API_KEY" }
+  })
+  const odds = await res.json()
+  console.log(odds.drivers[0])
+  ```
+  </Tab>
+</Tabs>
+
+```json
+{
+  "id": "odds_01hx7k2m",
+  "event_id": "evt_2026_eldora_dream",
+  "market": "feature_winner",
+  "line_status": "open",
+  "track_condition_score": 64.1,
+  "confidence": 0.84,
+  "overround": 1.11,
+  "drivers": [
+    {
+      "driver_id": "drv_42",
+      "name": "Brandon Overton",
+      "car_number": "76",
+      "implied_probability": 0.21,
+      "american_odds": -165,
+      "decimal_odds": 1.61,
+      "model_edge": 0.03,
+      "form_score": 88.1,
+      "track_affinity": 91.4
+    }
+  ]
+}
+```
+
+---
+
+## Step 4: Subscribe to live updates
+
+```bash
+POST https://api.dirtiq.com/v1/webhooks
+Authorization: Bearer YOUR_API_KEY
+Content-Type: application/json
+
+{
+  "url": "https://your-platform.com/hooks/dirtiq",
+  "events": ["odds.updated", "odds.suspended", "sharp_alert.triggered"],
+  "series": ["lucas_oil_late_models"]
+}
+```
+
+You'll receive a push within seconds of each qualifying session, heat race result, or significant condition change.
+
+---
+
+## Step 5: Handle line updates
+
+```json
+{
+  "type": "odds.updated",
+  "trigger": "heat_results",
+  "event_id": "evt_2026_eldora_dream",
+  "changes": [
+    {
+      "driver_id": "drv_42",
+      "prev_american_odds": -165,
+      "new_american_odds": -200,
+      "trigger_reason": "won_heat_dominant"
+    }
+  ]
+}
+```
+
+---
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Predictive models" href="/concepts/predictive-models">
+    How the Bayesian engine converts driver profiles to opening lines.
+  </Card>
+  <Card title="Line movement" href="/analytics/line-movement">
+    What triggers a recalculation and how fast updates reach your book.
+  </Card>
+  <Card title="Sharp money" href="/analytics/sharp-money">
+    How the deviation algorithm works and what alert levels mean.
+  </Card>
+  <Card title="API reference" href="/api-reference/introduction">
+    Full endpoint and schema documentation.
+  </Card>
+</CardGroup>

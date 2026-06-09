@@ -1,0 +1,105 @@
+---
+title: Track Conditions
+description: How Dirt IQ scores and models surface state — and why it's a significant odds-moving variable in dirt track racing.
+---
+
+import { Accordion, AccordionGroup, Tip } from '@/components'
+
+# Track Conditions
+
+Unlike pavement racing, dirt track surfaces change materially over the course of a race night — often enough to invert who the favorites are. A driver favored on a heavy, multi-groove surface can become a long shot by the feature if the track slicks off to a single groove.
+
+---
+
+## The condition score
+
+Surface state is expressed as a single **condition score from 0 to 100**:
+
+| Score | Surface | Betting implications |
+|---|---|---|
+| 0 – 20 | Dry / Slick | Single-groove; long-shot value for patient, technically sound drivers |
+| 21 – 40 | Transitional slick | Second groove forming; setup versatility matters |
+| 41 – 60 | Tacky / Ideal | Multiple grooves; most historical data here; lines most reliable |
+| 61 – 80 | Heavy / Moisture-rich | Cushion forms; power and aggression rewarded; upsets more likely |
+| 81 – 100 | Wet / Pre-race only | Feature rarely contested; high cancellation risk |
+
+---
+
+## Score components
+
+<AccordionGroup>
+  <Accordion title="Moisture index (40% weight)">
+    Derived from weather station readings, soil probe sensors (where available), and historical moisture retention curves for that specific track's soil composition. High moisture = high score.
+  </Accordion>
+  <Accordion title="Temperature differential (20% weight)">
+    The delta between track surface temperature and ambient air temperature. A cold surface retains moisture longer; a hot surface accelerates drying. Measured via satellite thermal data or on-site sensors.
+  </Accordion>
+  <Accordion title="Wind and humidity (20% weight)">
+    High wind accelerates evaporation and drying. Humidity slows it. The model uses a modified Penman evaporation equation tuned for packed clay.
+  </Accordion>
+  <Accordion title="Time-in-program decay (20% weight)">
+    Even with no weather changes, track conditions dry down as the event progresses — more rubber is laid, the surface gets worked. The decay curve is calibrated per track from historical prep logs and lap count data.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## How conditions move odds
+
+A meaningful swing in the score (±10 points or more) triggers a full recalculation and an `odds.updated` webhook push.
+
+Example: a pre-race condition score of 72 shifts to 55 after an unexpected dry wind picks up during hot laps. Drivers with strong heavy-track profiles see their implied probabilities drop; drivers who perform well at mid-range conditions see theirs rise.
+
+The magnitude of the adjustment is driver-specific — it depends on each driver's **surface sensitivity score**, derived from their historical results split by condition band.
+
+---
+
+## Manual overrides
+
+If your crew chief has a strong read on the surface, pass `track_condition_override` in your odds request:
+
+```json
+{
+  "event_id": "evt_2026_eldora_dream",
+  "market": "feature_winner",
+  "track_condition_override": 71.0
+}
+```
+
+Overrides replace the model's computed score for that request only. They do not affect future auto-calculated scores.
+
+---
+
+## Data sources (priority order)
+
+| Source | Accuracy | Notes |
+|---|---|---|
+| On-site weather station | Highest | 5-minute push; highest confidence scores |
+| Nearest ASOS/AWOS station | Medium | Within 30 miles; accuracy decreases with distance |
+| NWS gridded forecast | Lowest | 2.5km resolution; used for events >24h out |
+
+---
+
+## Per-track condition profiles
+
+```bash
+GET /tracks/{track_id}/condition-profile?series=lucas_oil_late_models
+```
+
+```json
+{
+  "track_id": "trk_eldora",
+  "events_sampled": 14,
+  "condition_profile": {
+    "median_feature_score": 44.2,
+    "most_common_band": "surface_tacky",
+    "heavy_pct": 0.21,
+    "tacky_pct": 0.57,
+    "slick_pct": 0.22
+  }
+}
+```
+
+<Tip>
+  Tracks with fewer than 3 sampled events use the regional track-type median as the condition prior.
+</Tip>
