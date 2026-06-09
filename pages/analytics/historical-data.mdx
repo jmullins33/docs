@@ -1,0 +1,105 @@
+---
+title: Historical Data
+description: DIRTRACKR-sourced results data — what's available, how it's structured, and how to access it.
+---
+
+import { Note } from '@/components'
+
+# Historical Data
+
+## Coverage
+
+| Dataset | Depth | Update frequency |
+|---|---|---|
+| Race results (finishes, DNFs, DNQs) | 2010 to present | After each event |
+| Track condition logs | 2018 to present | After each event |
+| Lap timing data | 2020 to present (varies by track) | After each event |
+| Weather station readings | 2021 to present | 5-minute intervals |
+| Odds archives | 2022 to present | Per odds object generated |
+
+---
+
+## Results by event
+
+```bash
+GET /events/{event_id}/results
+```
+
+```json
+{
+  "event_id": "evt_2023_eldora_dream",
+  "track_id": "trk_eldora",
+  "division": "lucas_oil_late_models",
+  "date": "2023-06-09",
+  "finishing_order": [
+    {
+      "position": 1,
+      "driver_id": "drv_18",
+      "name": "Jonathan Davenport",
+      "car_number": "49",
+      "laps_led": 28,
+      "fastest_lap_ms": 14021,
+      "starting_position": 2
+    }
+  ],
+  "caution_count": 3,
+  "track_condition_score_at_start": 71.2,
+  "track_condition_score_at_finish": 38.4,
+  "field_size": 34
+}
+```
+
+## Results by driver
+
+```bash
+GET /drivers/{driver_id}/results?series=lucas_oil_late_models&since=2022-01-01
+GET /drivers/{driver_id}/results?track_id=trk_eldora
+GET /drivers/{driver_id}/results?condition_band=slick
+```
+
+## Odds archive
+
+Compare past predictions against actual results:
+
+```bash
+GET /odds?event_id=evt_2023_eldora_dream&include_history=true
+```
+
+Returns opening lines, each recalculation checkpoint, and final pre-feature lines — useful for measuring closing line value and calibrating margin decisions.
+
+---
+
+## Bulk export
+
+```bash
+POST /exports
+{
+  "dataset": "results",
+  "series": "lucas_oil_late_models",
+  "since": "2015-01-01",
+  "format": "csv"
+}
+```
+
+| Dataset | Description |
+|---|---|
+| `results` | Full finishing orders for all events |
+| `odds_history` | Opening and checkpoint odds for all modeled events |
+| `driver_profiles` | Metric snapshots at time of each event |
+| `conditions` | Track condition scores per event |
+
+Exports are delivered as `.csv.gz` to your registered email.
+
+---
+
+## Rate limits
+
+| Plan | Historical queries / min | Bulk exports / day |
+|---|---|---|
+| Starter | 30 | 2 |
+| Pro | 120 | 10 |
+| Enterprise | Unlimited | Unlimited |
+
+<Note>
+  Bulk exports are processed in a separate queue and do not count against your per-minute rate limit.
+</Note>

@@ -1,0 +1,66 @@
+---
+title: Request Odds
+description: Generate odds on demand for a specific event and market.
+---
+
+# Request Odds
+
+```
+POST /odds
+```
+
+Generates odds for the specified event and market. Returns the full odds object immediately (typically < 300ms).
+
+## Request body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `event_id` | string | Yes | The event to generate odds for |
+| `market` | string | No | Default: `feature_winner` |
+| `overround` | float | No | Override account default (e.g. `0.12` for 12%) |
+| `track_condition_override` | float | No | Manual condition score 0–100; replaces computed score |
+| `include_heat_race_data` | boolean | No | Default `true` |
+
+## Example request
+
+```bash
+curl -X POST https://api.dirtiq.com/v1/odds \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_id": "evt_2026_eldora_dream",
+    "market": "feature_winner",
+    "track_condition_override": 71.0
+  }'
+```
+
+## Example response
+
+```json
+{
+  "id": "odds_01hx9p4n",
+  "event_id": "evt_2026_eldora_dream",
+  "market": "feature_winner",
+  "line_status": "open",
+  "model_version": "2026-06",
+  "generated_at": "2026-06-13T18:30:00Z",
+  "track_condition_score": 71.0,
+  "confidence": 0.81,
+  "overround": 1.11,
+  "drivers": [
+    {
+      "driver_id": "drv_42",
+      "name": "Brandon Overton",
+      "car_number": "76",
+      "implied_probability": 0.24,
+      "american_odds": -215,
+      "decimal_odds": 1.47,
+      "model_edge": 0.05,
+      "form_score": 88.1,
+      "track_affinity": 91.4
+    }
+  ]
+}
+```
+
+Note that `track_condition_score: 71.0` reflects the override — the driver's heavy-surface profile has increased his implied probability from the standard line.

@@ -1,0 +1,24 @@
+/* Card grid responsive */
+@media (max-width: 640px) {
+  .diq-card-group {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Card hover */
+a.diq-card:hover {
+  border-color: #EA580C !important;
+  box-shadow: 0 2px 10px rgba(234, 88, 12, 0.12);
+  text-decoration: none;
+}
+
+/* Accordion */
+details.diq-accordion > summary {
+  list-style: none;
+}
+details.diq-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+details.diq-accordion[open] > summary .diq-chevron {
+  transform: rotate(90deg);
+}

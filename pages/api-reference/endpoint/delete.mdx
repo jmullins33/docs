@@ -1,0 +1,37 @@
+---
+title: Delete Snapshot
+description: Permanently remove a stored odds snapshot by ID.
+---
+
+# Delete Snapshot
+
+```
+DELETE /odds/{id}
+```
+
+Permanently removes a stored odds object. This action cannot be undone.
+
+## Path parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | string | The unique odds object ID |
+
+## Example request
+
+```bash
+curl -X DELETE https://api.dirtiq.com/v1/odds/odds_01hx7k2m \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+## Response
+
+Returns `204 No Content` on success.
+
+```json
+// 404 if not found
+{
+  "error": 404,
+  "message": "odds object odds_01hx7k2m not found"
+}
+```

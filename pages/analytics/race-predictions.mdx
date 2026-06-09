@@ -1,0 +1,104 @@
+---
+title: Opening Lines
+description: How Dirt IQ generates and publishes opening odds for Lucas Oil Late Model events.
+---
+
+import { Note, Warning } from '@/components'
+
+# Opening Lines
+
+## When lines become available
+
+Lines are generated as soon as the entry list for an event is published and marked complete in DIRTRACKR. The API field `lines_available` transitions to `true` and an `odds.published` webhook fires to all licensed subscribers.
+
+| Milestone | Lines status |
+|---|---|
+| Entry list published (T-2 days) | Opening lines generated; `odds.published` fires |
+| Hot laps / time trials (day-of) | Lines recalculated with qualifying data |
+| Heat races complete | Lines recalculated with each result |
+| Feature starts | Lines suspended; `odds.suspended` fires |
+| Feature complete | Results posted; market settled |
+
+---
+
+## The odds object
+
+```json
+{
+  "id": "odds_01hx7k2m",
+  "event_id": "evt_2026_eldora_dream",
+  "market": "feature_winner",
+  "line_status": "open",
+  "model_version": "2026-06",
+  "generated_at": "2026-06-12T14:22:00Z",
+  "track_condition_score": 64.1,
+  "confidence": 0.84,
+  "overround": 1.11,
+  "drivers": [
+    {
+      "driver_id": "drv_42",
+      "name": "Brandon Overton",
+      "car_number": "76",
+      "implied_probability": 0.21,
+      "american_odds": -165,
+      "decimal_odds": 1.61,
+      "fractional_odds": "61/100",
+      "model_edge": 0.03,
+      "form_score": 88.1,
+      "track_affinity": 91.4
+    }
+  ]
+}
+```
+
+| Field | Description |
+|---|---|
+| `implied_probability` | Model probability after overround margin applied |
+| `american_odds` | Standard American moneyline |
+| `model_edge` | Model probability minus market line. Positive = underpriced. |
+| `overround` | Total market book (1.11 = 11% margin) |
+| `confidence` | Model confidence 0–1; lower when data is thin |
+
+---
+
+## Available markets
+
+| Market | Availability |
+|---|---|
+| `feature_winner` | All events |
+| `top_3_finish` | All events |
+| `top_5_finish` | All events |
+| `head_to_head` | On request |
+| `winning_margin` | Beta |
+
+---
+
+## Odds formats
+
+All three formats are returned in every response. Set a preference per-request:
+
+```
+Accept-Odds-Format: american
+Accept-Odds-Format: decimal
+Accept-Odds-Format: fractional
+```
+
+---
+
+## Interpreting win probabilities
+
+Win probability rarely exceeds 0.30 in large competitive fields. A driver at 0.25 in a 30-car World of Outlaws feature is strongly favored.
+
+Probabilities are **calibrated** — verified quarterly against historical results. A driver priced at 0.20 should win roughly 20% of the time in similar conditions.
+
+---
+
+## Suspension and settlement
+
+Dirt IQ fires `odds.suspended` at feature start. Operators are responsible for their own in-play decisions.
+
+After results post to DIRTRACKR (typically within 30 minutes of the feature), the event transitions to `settled` and the `event.settled` webhook fires with the final finishing order.
+
+<Note>
+  Dirt IQ does not currently support in-race live betting lines. The suspension at feature start is automatic.
+</Note>

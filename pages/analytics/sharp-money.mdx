@@ -1,0 +1,115 @@
+---
+title: Sharp Money Detection
+description: How Dirt IQ identifies when betting patterns deviate from modeled probability — and what to do about it.
+---
+
+# Sharp Money Detection
+
+## Why it matters in niche markets
+
+Niche motorsport markets are particularly vulnerable to informed bettors because:
+
+1. The market is small — a few large bets can move handle significantly relative to market size
+2. Information asymmetry exists — insiders (crew members, track officials, promoters) have real edges on conditions, car setup, and driver health that the model doesn't capture
+3. Lines may sit untouched for hours, giving sharps time to find value
+
+---
+
+## The deviation score
+
+The algorithm measures how far a driver's current implied market probability has drifted from Dirt IQ's modeled probability:
+
+```
+deviation_score = (book_implied_prob - model_implied_prob) / model_std_dev
+```
+
+A score of **1.0** = market has moved 1 standard deviation from the model.
+
+| Deviation Score | Alert Level | Recommended action |
+|---|---|---|
+| 1.0 – 1.5 | `low` | Monitor; no action required |
+| 1.5 – 2.5 | `medium` | Review line; consider tightening limits |
+| 2.5+ | `high` | Immediate line review; consider suspension |
+
+---
+
+## Alert payload
+
+```json
+{
+  "type": "sharp_alert.triggered",
+  "event_id": "evt_2026_eldora_dream",
+  "market": "feature_winner",
+  "timestamp": "2026-06-13T19:47:00Z",
+  "driver_id": "drv_77",
+  "driver_name": "Chris Madden",
+  "alert_level": "medium",
+  "deviation_score": 2.1,
+  "model_implied_probability": 0.08,
+  "book_implied_probability": 0.14,
+  "volume_percentile": 89,
+  "message": "Unusual volume on drv_77 at +350; model implies +750. Consider line review.",
+  "context": {
+    "recent_sharp_bets_count": 3,
+    "avg_bet_size_percentile": 94,
+    "time_since_last_line_update_min": 47
+  }
+}
+```
+
+`volume_percentile` — where this driver's bet volume ranks vs. the rest of the field.
+`time_since_last_line_update_min` — stale lines are more vulnerable; 47-minute-old line with high volume is a stronger signal.
+
+---
+
+## Patterns the algorithm flags
+
+| Pattern | Description |
+|---|---|
+| Steam move | Multiple accounts betting the same driver within a short window |
+| Stale line arbitrage | Large bets placed immediately after a qualifying result that hasn't updated the line yet |
+| Cross-market correlation | Unusual volume on a driver in multiple markets simultaneously |
+| Late sharp action | Volume spike in the 30–60 min window before feature start |
+
+Pattern detection requires the operator to push bet-level data via the `/risk/bets` inbound feed (optional — deviation scoring works without it).
+
+---
+
+## Sending bet data
+
+```bash
+POST /risk/bets
+{
+  "event_id": "evt_2026_eldora_dream",
+  "market": "feature_winner",
+  "driver_id": "drv_77",
+  "bet_amount": 500,
+  "odds_taken": 350,
+  "timestamp": "2026-06-13T19:45:00Z",
+  "account_hash": "sha256_of_account_id"
+}
+```
+
+Account IDs are hashed before transmission — Dirt IQ never receives raw customer identifiers.
+
+---
+
+## Configuring thresholds
+
+```bash
+PATCH /operators/me/sharp-detection
+{
+  "enabled": true,
+  "low_threshold": 1.0,
+  "medium_threshold": 1.8,
+  "high_threshold": 2.5,
+  "alert_channels": ["webhook", "email"],
+  "alert_email": "trading@yourbook.com"
+}
+```
+
+---
+
+## What Dirt IQ does not do
+
+Dirt IQ provides signals — your trading desk makes decisions. The system does not automatically suspend markets, identify individual bettors across operators, or advise on regulatory compliance for sharp betting policies.

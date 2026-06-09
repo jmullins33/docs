@@ -1,0 +1,89 @@
+---
+title: Driver Metrics
+description: The performance metrics Dirt IQ uses to profile every driver — sourced from DIRTRACKR and live timing.
+---
+
+import { Note } from '@/components'
+
+# Driver Metrics
+
+All historical driver metrics are derived from **DIRTRACKR**, the primary structured results database for Lucas Oil Late Models and affiliated dirt late model series. DIRTRACKR data is ingested nightly via batch pull.
+
+---
+
+## Core metrics used in the odds engine
+
+### Form score
+
+A rolling 0–100 score representing recent performance over the past 30 days relative to career baseline.
+
+- Weighted by field depth (winning a 30-car national show counts more than a 12-car regional)
+- Decayed by recency — last weekend counts more than three weekends ago
+- Normalized within the division so scores are comparable across drivers
+
+### Track affinity score
+
+A 0–100 score measuring how well a driver performs at a specific track relative to the rest of the field.
+
+- Weighted for recency — results from the past two seasons count double
+- Accounts for field depth at each event
+- Drivers with fewer than 3 starts at a venue are regressed toward their overall profile
+
+### Surface performance split
+
+Every driver's record is segmented by condition band — this is the key input to condition-adjusted odds:
+
+| Surface | Score Range | Win Rate | Avg Finish |
+|---|---|---|---|
+| Heavy | 61–100 | — | — |
+| Tacky | 41–60 | — | — |
+| Slick | 0–40 | — | — |
+
+A driver who dominates tacky conditions but struggles on a slick gets a lower win probability when the model projects a dry, one-groove feature.
+
+---
+
+## Extended metrics
+
+### Fatigue index
+
+Measures physical workload over the past 7 days — counts starts, travel distance, and race miles. High fatigue (index > 80) mildly penalizes projected performance.
+
+### Starting position impact
+
+- **Front-row conversion rate**: how often a driver converts a P1–P4 start to a win
+- **Charge-through rate**: average positions gained from P10+ starts
+
+### Heat race calibration
+
+When heat race results are available:
+
+- Heat race finish vs. expected finish (over/underperformance)
+- Observed lap times vs. field median (timing feed required)
+- Car damage or mechanical issues flagged in timing data
+
+---
+
+## Driver database coverage
+
+| Series | Since | Completeness |
+|---|---|---|
+| Lucas Oil Late Models | 2010 | Full finishing order, DNFs, DNQs |
+| World of Outlaws STS | 2012 | Full finishing order |
+| CARS Tour | 2015 | Full finishing order |
+| Regional / outlaw late models | Varies | Best-effort via DIRTRACKR submissions |
+
+<Note>
+  Drivers with fewer than 5 career starts in the division have wider confidence intervals. The model regresses their prior toward the population mean rather than excluding them.
+</Note>
+
+---
+
+## Accessing driver data
+
+```bash
+GET /drivers/{driver_id}
+GET /drivers/{driver_id}/history?track_id=trk_eldora
+GET /drivers/{driver_id}/stats/condition-split?series=lucas_oil_late_models
+GET /drivers?search=overton&series=lucas_oil_late_models
+```

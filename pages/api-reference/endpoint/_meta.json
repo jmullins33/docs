@@ -1,0 +1,6 @@
+{
+  "get": "List Odds",
+  "create": "Request Odds",
+  "delete": "Delete Snapshot",
+  "webhook": "Webhooks"
+}

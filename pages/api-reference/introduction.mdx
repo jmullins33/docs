@@ -1,0 +1,111 @@
+---
+title: API Introduction
+description: The Dirt IQ odds feed API — authentication, base URL, rate limits, and versioning.
+---
+
+import { Warning, Card, CardGroup } from '@/components'
+
+# API Introduction
+
+## Base URL
+
+```
+https://api.dirtiq.com/v1
+```
+
+## Authentication
+
+Every request requires a Bearer token:
+
+```bash
+Authorization: Bearer YOUR_API_KEY
+```
+
+API keys are scoped to your operator account and licensed series. Manage keys at [app.dirtiq.com/api-keys](https://app.dirtiq.com/api-keys).
+
+<Warning>
+  Never expose your API key in client-side code or commit it to source control. Rotate compromised keys immediately.
+</Warning>
+
+## Request format
+
+All `POST` and `PATCH` requests must include:
+
+```
+Content-Type: application/json
+```
+
+## Error format
+
+```json
+{
+  "error": 422,
+  "message": "series 'nascar_cup' is not licensed on your account"
+}
+```
+
+## Rate limits
+
+| Plan | Requests / minute | Burst |
+|---|---|---|
+| Starter | 60 | 120 |
+| Pro | 300 | 600 |
+| Enterprise | Unlimited | — |
+
+```
+X-RateLimit-Limit: 300
+X-RateLimit-Remaining: 284
+X-RateLimit-Reset: 1723305060
+```
+
+`429 Too Many Requests` when exceeded. Use exponential backoff before retrying.
+
+## Pagination
+
+```bash
+GET /odds?limit=20&after=odds_01hx9p4n
+```
+
+```json
+{
+  "data": [...],
+  "pagination": { "has_more": true, "next_cursor": "odds_01hx7k2m" }
+}
+```
+
+## Versioning
+
+Current stable version: **v1**. Breaking changes ship under `/v2`. Non-breaking additions are deployed to v1 without notice.
+
+Pin to a monthly release:
+
+```
+Dirt-IQ-Version: 2026-06
+```
+
+## Odds format
+
+```
+Accept-Odds-Format: american    # default
+Accept-Odds-Format: decimal
+Accept-Odds-Format: fractional
+```
+
+---
+
+## Endpoints
+
+<CardGroup cols={2}>
+  <Card title="List Odds" href="/api-reference/endpoint/get">
+    Retrieve current odds for a licensed event.
+  </Card>
+  <Card title="Request Odds" href="/api-reference/endpoint/create">
+    On-demand odds generation for a specific event and market.
+  </Card>
+  <Card title="Delete Snapshot" href="/api-reference/endpoint/delete">
+    Remove a stored odds object by ID.
+  </Card>
+  <Card title="Webhooks" href="/api-reference/endpoint/webhook">
+    Receive `odds.updated`, `sharp_alert.triggered`, and `event.settled` pushes.
+  </Card>
+</CardGroup>
