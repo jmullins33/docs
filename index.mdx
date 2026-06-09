@@ -1,93 +1,76 @@
 ---
-title: "Welcome to Acme"
-description: "Build, ship, and scale with the Acme platform and API"
+title: "Late Model Predictor"
+description: "A database and prediction engine for the Lucas Oil Late Model Dirt Series"
 ---
 
-## Get started
+## What this is
 
-Everything you need to integrate Acme into your application in minutes.
+Late Model Predictor is a project for collecting Lucas Oil Late Model Dirt Series
+(LMDS) results, building a clean historical database, and using it to predict race
+**winners** and **prop outcomes** — fast laps, top fives, hard charger, and more.
 
 <Card
-  title="Quickstart"
-  icon="rocket"
+  title="Start here"
+  icon="flag-checkered"
   href="/quickstart"
   horizontal
 >
-  Make your first API call in under five minutes.
+  Set up the database and load your first season of results in three steps.
 </Card>
 
-## Build your integration
+## The data
+
+Everything starts with clean, structured race data. These pages cover how the
+database is laid out and where the numbers come from.
 
 <Columns cols={2}>
   <Card
-    title="Authentication"
-    icon="key"
-    href="/api-reference/introduction"
+    title="Database schema"
+    icon="table"
+    href="/data/schema"
   >
-    Learn how to authenticate requests with API keys.
+    Tables for drivers, tracks, races, results, and qualifying.
   </Card>
   <Card
-    title="API reference"
-    icon="terminal"
-    href="/api-reference/introduction"
+    title="Data sources"
+    icon="download"
+    href="/data/sources"
   >
-    Explore every endpoint with live examples.
+    Where results, schedules, and standings come from.
   </Card>
   <Card
-    title="Local development"
-    icon="laptop-code"
-    href="/development"
+    title="Drivers & tracks"
+    icon="user"
+    href="/data/drivers-tracks"
   >
-    Set up your environment and test changes locally.
-  </Card>
-  <Card
-    title="Webhooks"
-    icon="bolt"
-    href="/api-reference/endpoint/webhook"
-  >
-    Receive real-time events from the Acme platform.
+    How drivers, cars, and tracks are normalized and matched.
   </Card>
 </Columns>
 
-## Learn the essentials
+## The predictions
+
+Once the data is in place, the prediction layer turns history into projections.
 
 <Columns cols={2}>
   <Card
-    title="Configure your project"
-    icon="gear"
-    href="/essentials/settings"
+    title="Methodology"
+    icon="chart-line"
+    href="/predictions/methodology"
   >
-    Adjust settings to match how your team works.
+    The features and scoring used to rate each entry.
   </Card>
   <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
+    title="Predicting winners"
+    icon="trophy"
+    href="/predictions/winners"
   >
-    Copy ready-to-use snippets in your language of choice.
+    Generate win probabilities for a given race.
   </Card>
   <Card
-    title="Add images & media"
-    icon="image"
-    href="/essentials/images"
+    title="Predicting props"
+    icon="dice"
+    href="/predictions/props"
   >
-    Enrich your guides with screenshots and diagrams.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse content across your docs.
+    Project fast time, top fives, and hard charger.
   </Card>
 </Columns>
-
-## Need help?
-
-<Card
-  title="Contact support"
-  icon="life-ring"
-  href="mailto:support@acme.com"
->
-  Our team is here to help you get unblocked.
-</Card>

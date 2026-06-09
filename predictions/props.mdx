@@ -1,0 +1,75 @@
+---
+title: "Predicting props"
+description: "Project fast time, top fives, hard charger, and other outcomes"
+---
+
+Props are the side outcomes beyond who wins. Most reuse the same entry ratings,
+just pointed at a different question.
+
+## Supported props
+
+<Columns cols={2}>
+  <Card title="Fast time" icon="stopwatch">
+    Who sets quick time in qualifying — driven mostly by recent qualifying pace.
+  </Card>
+  <Card title="Top five finish" icon="award">
+    Probability a given driver finishes in the top five.
+  </Card>
+  <Card title="Hard charger" icon="arrow-up-right-dots">
+    Most positions gained from start to finish.
+  </Card>
+  <Card title="Head-to-head" icon="code-compare">
+    Which of two drivers finishes ahead of the other.
+  </Card>
+</Columns>
+
+## How each is computed
+
+<AccordionGroup>
+  <Accordion icon="stopwatch" title="Fast time">
+    Rank entries by predicted qualifying pace and apply a softmax over that single
+    feature. The fastest recent qualifiers rise to the top.
+  </Accordion>
+  <Accordion icon="award" title="Top five finish">
+    Sum the probability mass of finishing 1st through 5th for a driver. A simple
+    estimate: run many simulated finishing orders and count how often the driver
+    lands in the top five.
+  </Accordion>
+  <Accordion icon="arrow-up-right-dots" title="Hard charger">
+    Combine a strong driver rating with a deep starting spot. Positions gained is
+    roughly `start_pos - expected_finish`, so the best hard-charger candidates are
+    fast cars that start back in the field.
+  </Accordion>
+  <Accordion icon="code-compare" title="Head-to-head">
+    Compare two ratings directly: `P(A beats B) = ratingA / (ratingA + ratingB)`.
+    This is independent of the rest of the field.
+  </Accordion>
+</AccordionGroup>
+
+## Simulation approach
+
+For props that depend on the full finishing order (top five, hard charger), a
+Monte Carlo simulation is the most flexible option:
+
+<Steps>
+  <Step title="Sample a finishing order">
+    Draw a plausible finish for the field using the entry ratings as weights.
+  </Step>
+  <Step title="Record the outcomes">
+    For that sampled race, note who hit top five, who gained the most spots, etc.
+  </Step>
+  <Step title="Repeat and average">
+    Run thousands of simulations. Each prop probability is the fraction of
+    simulations in which it occurred.
+  </Step>
+</Steps>
+
+<Tip>
+  Simulation lets you answer almost any prop ("does driver X finish ahead of Y and
+  inside the top 10?") without writing a new formula for each one.
+</Tip>
+
+<Warning>
+  These projections are for analysis and entertainment. Always follow the laws and
+  terms of service that apply to you before using them for anything else.
+</Warning>

@@ -1,0 +1,67 @@
+---
+title: "Drivers & tracks"
+description: "Normalize and match drivers, cars, and tracks across sources"
+---
+
+Raw results name the same driver and track many different ways. Before you can
+compute reliable stats, every raw name has to resolve to one canonical record.
+
+## The matching problem
+
+| Raw value | Canonical |
+| --- | --- |
+| `Jonathan Davenport`, `J. Davenport`, `Davenport` | Driver #1408 — Jonathan Davenport |
+| `Eldora`, `Eldora Speedway`, `Eldora (OH)` | Track #12 — Eldora Speedway, OH |
+| `B. Sheppard`, `Brandon Sheppard` | Driver #1129 — Brandon Sheppard |
+
+## A matching workflow
+
+<Steps>
+  <Step title="Normalize the string">
+    Trim whitespace, collapse repeated spaces, and standardize casing before
+    comparing anything.
+  </Step>
+  <Step title="Try an exact match">
+    Look the cleaned name up in an alias table. Most rows resolve here once the
+    table is seeded.
+  </Step>
+  <Step title="Fall back to fuzzy matching">
+    For misses, use a similarity score (e.g. trigram / Levenshtein). Auto-accept
+    high-confidence matches and queue the rest for review.
+  </Step>
+  <Step title="Record the alias">
+    When a match is confirmed, store the raw string as an alias so the same
+    variant matches instantly next time.
+  </Step>
+</Steps>
+
+## Alias tables
+
+Keep a small lookup table per entity so matching gets smarter over time:
+
+```sql
+CREATE TABLE driver_aliases (
+  alias      TEXT PRIMARY KEY,
+  driver_id  INTEGER NOT NULL REFERENCES drivers(id)
+);
+
+CREATE TABLE track_aliases (
+  alias     TEXT PRIMARY KEY,
+  track_id  INTEGER NOT NULL REFERENCES tracks(id)
+);
+```
+
+<Tip>
+  Car numbers are **not** stable identifiers — drivers change numbers between
+  seasons and teams. Always key on the driver record, not the car number.
+</Tip>
+
+## Track attributes worth storing
+
+Track characteristics feed directly into predictions, so capture them once per track:
+
+- **Length** — short tracks (under 3/8 mile) reward different cars than big tracks.
+- **Configuration** — banking and shape affect who runs well.
+- **Region** — some drivers travel a regional subset of the schedule.
+
+With clean, matched data, move on to the [prediction methodology](/predictions/methodology).

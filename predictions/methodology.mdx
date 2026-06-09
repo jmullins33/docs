@@ -1,0 +1,72 @@
+---
+title: "Methodology"
+description: "The features and scoring used to rate each entry"
+---
+
+Predictions start with a **driver rating** for a specific race. The rating blends
+recent form, track fit, and qualifying pace into a single score that can be turned
+into probabilities.
+
+## Core features
+
+<Columns cols={2}>
+  <Card title="Recent form" icon="chart-line">
+    Average finish and win rate over a driver's last N races, weighted toward the
+    most recent.
+  </Card>
+  <Card title="Track fit" icon="location-dot">
+    Historical performance at this track, and at tracks of similar length and
+    configuration.
+  </Card>
+  <Card title="Qualifying pace" icon="stopwatch">
+    Time-trial speed relative to the field — the strongest single-race signal.
+  </Card>
+  <Card title="Equipment & team" icon="wrench">
+    Recent performance of the car/team, which captures mid-season changes.
+  </Card>
+</Columns>
+
+## From features to a score
+
+Each feature is normalized to a 0–1 scale, then combined with weights:
+
+```text
+rating = w1 * recent_form
+       + w2 * track_fit
+       + w3 * qualifying_pace
+       + w4 * team_strength
+```
+
+<Note>
+  Start with sensible weights (qualifying pace and recent form highest), then tune
+  them by backtesting against past seasons. Don't over-fit — dirt racing is noisy.
+</Note>
+
+## Turning ratings into probabilities
+
+To get win probabilities for a field, convert ratings with a softmax so they sum
+to 100%:
+
+$$P_i = \frac{e^{\,r_i / T}}{\sum_j e^{\,r_j / T}}$$
+
+Here $$r_i$$ is the rating for driver $$i$$ and $$T$$ is a temperature that
+controls how much the favorites are separated from the field. Lower $$T$$ makes
+the model more confident in the top entries.
+
+## Backtesting
+
+<Steps>
+  <Step title="Hold out a season">
+    Train on prior seasons and predict a season the model has never seen.
+  </Step>
+  <Step title="Score the predictions">
+    Use log loss or Brier score for win probability, and hit rate for props.
+  </Step>
+  <Step title="Tune and repeat">
+    Adjust weights and the temperature, then re-run until the held-out score
+    stops improving.
+  </Step>
+</Steps>
+
+With a working rating, generate [winner predictions](/predictions/winners) and
+[prop predictions](/predictions/props).

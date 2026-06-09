@@ -1,11 +1,11 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Acme",
+  "name": "Late Model Predictor",
   "colors": {
-    "primary": "#2563EB",
-    "light": "#3B82F6",
-    "dark": "#1D4ED8"
+    "primary": "#DC2626",
+    "light": "#F87171",
+    "dark": "#991B1B"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -20,49 +20,26 @@
               "quickstart",
               "development"
             ]
-          },
-          {
-            "group": "Customization",
-            "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
-          },
-          {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Data & Predictions",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "The data model",
             "pages": [
-              "api-reference/introduction"
+              "data/schema",
+              "data/sources",
+              "data/drivers-tracks"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Making predictions",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "predictions/methodology",
+              "predictions/winners",
+              "predictions/props"
             ]
           }
         ]
@@ -71,14 +48,14 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Community",
-          "href": "https://acme.com/community",
-          "icon": "discord"
+          "anchor": "Lucas Oil LMDS",
+          "href": "https://www.lucasdirt.com",
+          "icon": "flag-checkered"
         },
         {
-          "anchor": "Blog",
-          "href": "https://acme.com/blog",
-          "icon": "newspaper"
+          "anchor": "Stats & Schedule",
+          "href": "https://www.lucasdirt.com/schedule",
+          "icon": "calendar"
         }
       ]
     }
@@ -91,32 +68,30 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:support@acme.com"
+        "href": "mailto:support@latemodelpredictor.dev"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.acme.com"
+      "label": "Schedule",
+      "href": "https://www.lucasdirt.com/schedule"
     }
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/acme",
-      "github": "https://github.com/acme",
-      "linkedin": "https://linkedin.com/company/acme"
+      "x": "https://x.com/lucasdirt"
     }
   }
 }

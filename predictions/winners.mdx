@@ -1,0 +1,55 @@
+---
+title: "Predicting winners"
+description: "Generate win probabilities for a Lucas Oil LMDS feature"
+---
+
+Once each entry has a [rating](/predictions/methodology), predicting the winner is
+a matter of converting ratings into probabilities for the specific field that
+showed up.
+
+## The steps
+
+<Steps>
+  <Step title="Build the field">
+    Pull the entry list for the race. Only the drivers actually entered should be
+    scored — a strong driver who skipped the event doesn't count.
+  </Step>
+  <Step title="Rate every entry">
+    Compute each driver's rating using their recent form, track fit, qualifying
+    pace, and team strength for this event.
+  </Step>
+  <Step title="Convert to probabilities">
+    Apply the softmax so the win probabilities across the field sum to 100%.
+  </Step>
+  <Step title="Rank and review">
+    Sort by probability. Sanity-check that known aces sit near the top and the
+    gap between favorites and the field looks reasonable.
+  </Step>
+</Steps>
+
+## Example output
+
+| Rank | Driver | Win probability |
+| --- | --- | --- |
+| 1 | Jonathan Davenport | 24% |
+| 2 | Brandon Sheppard | 19% |
+| 3 | Tim McCreadie | 14% |
+| 4 | Bobby Pierce | 11% |
+| 5 | Devin Moran | 8% |
+| ... | field | 24% |
+
+<Note>
+  Win probabilities are spread across the whole field, so even a strong favorite
+  usually lands well under 50%. That's expected — dirt features are volatile.
+</Note>
+
+## Improving accuracy
+
+- **Use qualifying once it's posted.** Adding actual time-trial results before the
+  feature sharpens predictions dramatically.
+- **Account for starting position.** A fast car buried deep in the field has a
+  lower win chance than its rating alone suggests.
+- **Watch for no-shows and provisionals.** A late field change shifts every
+  probability.
+
+For everything beyond the win, see [predicting props](/predictions/props).

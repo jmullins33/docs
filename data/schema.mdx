@@ -1,0 +1,90 @@
+---
+title: "Database schema"
+description: "Core tables for storing Lucas Oil Late Model Dirt Series results"
+---
+
+The schema is built around races and the entries in each race. Everything else —
+drivers, tracks, qualifying, and finishing results — hangs off of those.
+
+## Tables at a glance
+
+| Table | Purpose |
+| --- | --- |
+| `drivers` | One row per driver, with a canonical name and hometown. |
+| `tracks` | One row per track, with surface, length, and location. |
+| `races` | A single event: date, track, series, and race type. |
+| `entries` | A driver's car in a given race (number, team, sponsor). |
+| `qualifying` | Time-trial / heat results that set the lineup. |
+| `results` | Finishing position, laps led, and status for each entry. |
+
+## Suggested SQL
+
+```sql
+CREATE TABLE drivers (
+  id          SERIAL PRIMARY KEY,
+  full_name   TEXT NOT NULL,
+  hometown    TEXT,
+  UNIQUE (full_name)
+);
+
+CREATE TABLE tracks (
+  id          SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL,
+  state       TEXT,
+  length_mi   NUMERIC(4,3),   -- e.g. 0.375 for a 3/8 mile
+  surface     TEXT DEFAULT 'dirt',
+  UNIQUE (name, state)
+);
+
+CREATE TABLE races (
+  id          SERIAL PRIMARY KEY,
+  race_date   DATE NOT NULL,
+  track_id    INTEGER NOT NULL REFERENCES tracks(id),
+  series      TEXT NOT NULL DEFAULT 'Lucas Oil LMDS',
+  race_type   TEXT,           -- feature, heat, qualifier
+  feature_laps INTEGER,
+  purse_usd   INTEGER
+);
+
+CREATE TABLE entries (
+  id          SERIAL PRIMARY KEY,
+  race_id     INTEGER NOT NULL REFERENCES races(id),
+  driver_id   INTEGER NOT NULL REFERENCES drivers(id),
+  car_number  TEXT,
+  team        TEXT,
+  UNIQUE (race_id, driver_id)
+);
+
+CREATE TABLE qualifying (
+  id          SERIAL PRIMARY KEY,
+  entry_id    INTEGER NOT NULL REFERENCES entries(id),
+  qual_time   NUMERIC(7,3),   -- seconds, e.g. 14.382
+  qual_pos    INTEGER
+);
+
+CREATE TABLE results (
+  id          SERIAL PRIMARY KEY,
+  entry_id    INTEGER NOT NULL REFERENCES entries(id),
+  start_pos   INTEGER,
+  finish_pos  INTEGER,
+  laps_led    INTEGER DEFAULT 0,
+  status      TEXT,           -- running, dnf, dns, dq
+  earnings_usd INTEGER
+);
+```
+
+<Note>
+  Keeping `entries` separate from `results` lets you store the starting lineup
+  (used for the **hard charger** prop) independently from the finish.
+</Note>
+
+## Why it's shaped this way
+
+- **Drivers and tracks are normalized.** Names get messy across sources, so each is
+  stored once and referenced by ID. See [Drivers & tracks](/data/drivers-tracks).
+- **A race can have many entries; an entry has one result.** This makes
+  per-race aggregates (win rate, average finish, laps led) easy to compute.
+- **Qualifying is its own table.** Time-trial pace is one of the strongest
+  predictive signals, so it's stored at full precision.
+
+Next, load this schema with real data from your [data sources](/data/sources).

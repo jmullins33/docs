@@ -1,0 +1,61 @@
+---
+title: "Data sources"
+description: "Where Lucas Oil Late Model Dirt Series results and schedules come from"
+---
+
+The predictions are only as good as the data behind them. This page covers the
+sources to pull from and how to keep them current.
+
+## Primary sources
+
+<Columns cols={2}>
+  <Card title="Official series site" icon="flag-checkered" href="https://www.lucasdirt.com">
+    Schedule, entry lists, points standings, and official results.
+  </Card>
+  <Card title="Race recaps" icon="newspaper">
+    Post-race summaries that confirm feature winners, fast time, and hard charger.
+  </Card>
+</Columns>
+
+## What to collect per race
+
+For every event, capture enough to fill the [schema](/data/schema):
+
+<Steps>
+  <Step title="Event details">
+    Date, track, feature lap count, and purse.
+  </Step>
+  <Step title="Entry list">
+    Driver, car number, and team for each entry.
+  </Step>
+  <Step title="Qualifying">
+    Time-trial seconds and qualifying position.
+  </Step>
+  <Step title="Finishing results">
+    Start position, finish position, laps led, and status (running / DNF / DNS / DQ).
+  </Step>
+</Steps>
+
+## Keeping data current
+
+<AccordionGroup>
+  <Accordion icon="calendar" title="Sync the schedule first">
+    Load the season schedule up front so each result has a race to attach to.
+    Re-check it periodically — rainouts and reschedules are common on dirt.
+  </Accordion>
+  <Accordion icon="rotate" title="Ingest results within 24 hours">
+    Pull each race in soon after it runs while recaps are fresh. Recent form is
+    weighted heavily by the model, so timeliness matters.
+  </Accordion>
+  <Accordion icon="circle-check" title="Validate before scoring">
+    Confirm the field size, that exactly one car is marked the winner, and that
+    laps led never exceed the feature lap count.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  Always respect each source's terms of use and rate limits when collecting data.
+  Cache responses rather than re-scraping the same race repeatedly.
+</Warning>
+
+Once raw data is in, normalize it on the [Drivers & tracks](/data/drivers-tracks) page.
